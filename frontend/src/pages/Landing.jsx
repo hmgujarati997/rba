@@ -9,20 +9,20 @@ function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BAC
 
 const WHY = [
   {
-    t: "One Room. Every Right Person.",
-    d: "The founders, decision-makers and craftspeople you'd otherwise chase for months — gathered, available, walking the same floor as you.",
+    t: "Owners. Not Their Teams.",
+    d: "The founders themselves are on the floor — the people who actually decide, build and deliver. Speak to the maker, not the messenger.",
   },
   {
-    t: "Deals Reserved for the Room.",
-    d: "Exhibitors bring bazaar-only pricing, trade terms and festive-season bundles you won't find online or in stores. Walk out with offers that pay for the trip.",
+    t: "A Cross-Section of Industries.",
+    d: "Textiles, jewellery, F&B, real estate, services, technology and craft — discover serious businesses across categories in one curated room, not seven separate trade fairs.",
   },
   {
     t: "Discover Before Anyone Else.",
-    d: "Unannounced launches, limited collections and private previews — most reach the open market months later, often at a different price.",
+    d: "Unannounced launches, limited collections and private previews — many of which reach the open market only months later, if at all.",
   },
   {
     t: "Conversations That Open Doors.",
-    d: "Sourcing partners, distributors, capital, hires, mentors — built over a quiet afternoon, not another cold message. The kind of meetings that don't happen on calendars.",
+    d: "Sourcing partners, distributors, collaborators, hires, mentors — built over a quiet afternoon, not another cold message. The kind of meetings that don't happen on calendars.",
   },
   {
     t: "Curated, Not Crowded.",
