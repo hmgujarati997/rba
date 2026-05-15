@@ -302,17 +302,32 @@ function Sponsors() {
 
 function Settings() {
   const [s, setS] = useState(null);
+  const [templates, setTemplates] = useState(null);
+  const [tmplLoading, setTmplLoading] = useState(false);
+  const [testMobile, setTestMobile] = useState("");
+  const [testName, setTestName] = useState("");
   useEffect(() => { api.get("/admin/settings").then((r) => setS(r.data)); }, []);
   if (!s) return <div>Loading…</div>;
   const save = async () => {
     try { const { data } = await api.put("/admin/settings", s); setS(data); toast.success("Settings saved"); }
     catch (err) { toast.error(formatError(err.response?.data?.detail)); }
   };
+  const fetchTemplates = async () => {
+    setTmplLoading(true);
+    try {
+      const { data } = await api.get("/admin/bizchat/templates");
+      setTemplates(data.data);
+      toast.success("Templates fetched");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+    finally { setTmplLoading(false); }
+  };
+  const testSend = async () => {
+    try { const { data } = await api.post("/admin/bizchat/test-send", { mobile: testMobile, name: testName, template: s.bizchat_template_visitor });
+      if (data.result?.skipped) toast(`Skipped: ${data.result.reason}`); else toast.success("Test sent — check WhatsApp");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+  };
   const F = (k, label) => (
     <div><label className="label-luxe">{label}</label><input data-testid={`set-${k}`} className="input-luxe" value={s[k] || ""} onChange={(e) => setS({...s, [k]: e.target.value})}/></div>
-  );
-  const FT = (k, label) => (
-    <div><label className="label-luxe">{label}</label><textarea rows={3} className="input-luxe resize-none" value={s[k] || ""} onChange={(e) => setS({...s, [k]: e.target.value})}/></div>
   );
   return (
     <div>
@@ -329,12 +344,31 @@ function Settings() {
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.visitor_registration_open} onChange={(e) => setS({...s, visitor_registration_open: e.target.checked})}/> Visitor Registration Open</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.exhibitor_registration_open} onChange={(e) => setS({...s, exhibitor_registration_open: e.target.checked})}/> Exhibitor Registration Open</label>
         </div>
-        <div className="sm:col-span-2">{FT("whatsapp_template_visitor", "WhatsApp Template — Visitor ({name} supported)")}</div>
-        <div className="sm:col-span-2">{FT("whatsapp_template_exhibitor", "WhatsApp Template — Exhibitor ({name})")}</div>
-        <div className="sm:col-span-2 eyebrow mt-4">BizChat WhatsApp API</div>
-        {F("bizchat_vendor_uid", "BizChat Vendor UID")}
-        {F("bizchat_token", "BizChat Token")}
-        <div className="sm:col-span-2 flex justify-end"><button data-testid="set-save" onClick={save} className="btn-gold">Save Settings</button></div>
+
+        <div className="sm:col-span-2 eyebrow mt-4" style={{ color: "#b2873d" }}>BizChat WhatsApp API · Meta-approved templates</div>
+        {F("bizchat_vendor_uid", "Vendor UID")}
+        {F("bizchat_token", "API Token")}
+        {F("bizchat_from_phone_id", "From Phone Number ID (optional)")}
+        {F("bizchat_template_language", "Template Language Code (e.g. en, en_us)")}
+        {F("bizchat_template_visitor", "Visitor Template Name (Meta-approved)")}
+        {F("bizchat_template_exhibitor", "Exhibitor Template Name (Meta-approved)")}
+
+        <div className="sm:col-span-2 flex flex-wrap gap-3 pt-1">
+          <button type="button" onClick={fetchTemplates} disabled={tmplLoading} className="btn-outline-gold">{tmplLoading ? "Fetching…" : "Fetch Template List"}</button>
+          <div className="flex items-center gap-2 ml-auto">
+            <input className="input-luxe" placeholder="Test mobile" value={testMobile} onChange={(e) => setTestMobile(e.target.value)} style={{ width: 160 }}/>
+            <input className="input-luxe" placeholder="Test name" value={testName} onChange={(e) => setTestName(e.target.value)} style={{ width: 160 }}/>
+            <button type="button" onClick={testSend} className="btn-outline-gold">Test Send</button>
+          </div>
+        </div>
+
+        {templates && (
+          <div className="sm:col-span-2 card-luxe p-4 max-h-72 overflow-auto text-xs" style={{ background: "#fbf8f0" }}>
+            <pre className="whitespace-pre-wrap" style={{ color: "#3b3b46" }}>{JSON.stringify(templates, null, 2)}</pre>
+          </div>
+        )}
+
+        <div className="sm:col-span-2 flex justify-end pt-2"><button data-testid="set-save" onClick={save} className="btn-gold">Save Settings</button></div>
       </div>
     </div>
   );

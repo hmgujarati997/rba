@@ -191,7 +191,7 @@ export default function Landing() {
       )}
 
       <footer className="max-w-xl mx-auto px-6 pb-24 text-center">
-        <Logo size="sm" withTagline={false} />
+        <Logo size="sm" />
         <div className="mt-3 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
       </footer>
     </div>

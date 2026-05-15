@@ -195,6 +195,10 @@ class EventSettingsIn(BaseModel):
     whatsapp_template_exhibitor: Optional[str] = None
     bizchat_vendor_uid: Optional[str] = None
     bizchat_token: Optional[str] = None
+    bizchat_template_visitor: Optional[str] = None
+    bizchat_template_exhibitor: Optional[str] = None
+    bizchat_template_language: Optional[str] = None
+    bizchat_from_phone_id: Optional[str] = None
 
 # ---------- Sanitize helpers ----------
 EXHIBITOR_PUBLIC_FIELDS = {
@@ -277,6 +281,10 @@ async def get_settings() -> dict:
             "whatsapp_template_exhibitor": "Welcome {name}, your Rama Bazaar 1.0 exhibitor account is created. Login at the portal.",
             "bizchat_vendor_uid": os.environ.get("BIZCHAT_VENDOR_UID", ""),
             "bizchat_token": os.environ.get("BIZCHAT_TOKEN", ""),
+            "bizchat_template_visitor": "",
+            "bizchat_template_exhibitor": "",
+            "bizchat_template_language": "en",
+            "bizchat_from_phone_id": "",
             "updated_at": now_iso(),
         }
         await db.settings.insert_one(dict(s))
@@ -286,7 +294,7 @@ async def get_settings() -> dict:
 async def public_settings():
     s = await get_settings()
     # Don't leak secrets publicly
-    safe = {k: v for k, v in s.items() if k not in {"bizchat_token", "bizchat_vendor_uid"}}
+    safe = {k: v for k, v in s.items() if k not in {"bizchat_token", "bizchat_vendor_uid", "bizchat_from_phone_id"}}
     return safe
 
 @api.get("/admin/settings")
@@ -706,30 +714,85 @@ async def admin_stats(_: dict = Depends(require_admin)):
         "sponsor_clicks": total_clicks,
     }
 
-# ---------- WhatsApp (BizChat) ----------
-async def send_bizchat_media(to_mobile: str, media_url: str, caption: str, file_name: str):
-    s = await get_settings()
+# ---------- WhatsApp (BizChat — Meta-approved templates) ----------
+def _bizchat_config(s: dict):
     vendor = s.get("bizchat_vendor_uid") or os.environ.get("BIZCHAT_VENDOR_UID")
     token = s.get("bizchat_token") or os.environ.get("BIZCHAT_TOKEN")
     base = os.environ.get("BIZCHAT_API_BASE", "https://bizchatapi.in/api")
-    if not vendor or not token:
-        logger.info("BizChat not configured; skipping WhatsApp send")
-        return {"skipped": True}
-    url = f"{base}/{vendor}/contact/send-media-message?token={token}"
+    return base, vendor, token
+
+async def send_bizchat_template(to_mobile: str, template_name: str, header_image: Optional[str], fields: List[str], name: str = ""):
+    """Send a Meta-approved template message via BizChat.
+
+    fields are body variables in order ({{1}}, {{2}} ...). If the template has a media
+    header (image), pass it via header_image.
+    """
+    s = await get_settings()
+    base, vendor, token = _bizchat_config(s)
+    if not vendor or not token or not template_name:
+        logger.info("BizChat template send skipped (missing vendor / token / template)")
+        return {"skipped": True, "reason": "bizchat-not-configured-or-template-missing"}
+    lang = s.get("bizchat_template_language") or "en"
+    from_id = s.get("bizchat_from_phone_id") or ""
+    url = f"{base}/{vendor}/contact/send-template-message?token={token}"
     payload = {
         "phone_number": to_mobile,
-        "media_type": "image",
-        "media_url": media_url,
-        "caption": caption,
-        "file_name": file_name,
+        "template_name": template_name,
+        "template_language": lang,
     }
+    if from_id:
+        payload["from_phone_number_id"] = from_id
+    if header_image:
+        payload["header_image"] = header_image
+        payload["header_field_1"] = name or ""
+    for i, val in enumerate(fields or [], start=1):
+        payload[f"field_{i}"] = val
+    if name:
+        first, _, last = name.partition(" ")
+        payload["contact"] = {
+            "first_name": first or name,
+            "last_name": last,
+            "country": "india",
+            "language_code": lang,
+        }
     try:
-        async with httpx.AsyncClient(timeout=15) as c:
+        async with httpx.AsyncClient(timeout=20) as c:
             r = await c.post(url, json=payload)
-            return {"status": r.status_code, "body": r.text[:500]}
+            return {"status": r.status_code, "body": r.text[:500], "payload_sent": payload}
     except Exception as e:
         logger.warning(f"BizChat send error: {e}")
         return {"error": str(e)}
+
+@api.get("/admin/bizchat/templates")
+async def bizchat_templates(_: dict = Depends(require_admin)):
+    s = await get_settings()
+    base, vendor, token = _bizchat_config(s)
+    if not vendor or not token:
+        raise HTTPException(status_code=400, detail="BizChat is not configured. Add vendor UID and token in Settings.")
+    url = f"{base}/{vendor}/contact/template-list?token={token}"
+    try:
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.get(url)
+            try:
+                data = r.json()
+            except Exception:
+                data = {"raw": r.text}
+            return {"status": r.status_code, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"BizChat error: {e}")
+
+@api.post("/admin/bizchat/test-send")
+async def bizchat_test_send(payload: dict, _: dict = Depends(require_admin)):
+    """Quick template test from admin. Payload: { mobile, template?, name? }"""
+    mobile = normalize_mobile(payload.get("mobile", ""))
+    if len(mobile) != 10:
+        raise HTTPException(status_code=400, detail="Invalid mobile number")
+    s = await get_settings()
+    template = payload.get("template") or s.get("bizchat_template_visitor") or ""
+    name = payload.get("name", "Friend")
+    to = "91" + mobile
+    res = await send_bizchat_template(to, template, header_image=None, fields=[name], name=name)
+    return {"sent": True, "result": res}
 
 @api.post("/visitors/send-whatsapp/{qr_id}")
 async def send_whatsapp(qr_id: str, request: Request):
@@ -737,14 +800,19 @@ async def send_whatsapp(qr_id: str, request: Request):
     if not v:
         raise HTTPException(status_code=404, detail="Visitor not found")
     s = await get_settings()
-    template = s.get("whatsapp_template_visitor", "Hello {name}, your Rama Bazaar 1.0 QR is attached.")
-    caption = template.replace("{name}", v["full_name"])
-    # Construct public QR URL using request base + path
-    base = str(request.base_url).rstrip("/")
-    qr_url = f"{base}/api/visitors/qr/{qr_id}.png"
-    # Indian numbers need country code
+    template = s.get("bizchat_template_visitor", "")
+    if not template:
+        return {"sent": False, "result": {"skipped": True, "reason": "visitor template not set in Admin → Settings → BizChat"}}
+    base_url = str(request.base_url).rstrip("/")
+    qr_url = f"{base_url}/api/visitors/qr/{qr_id}.png"
     to = ("91" + v["mobile"]) if len(v["mobile"]) == 10 else v["mobile"]
-    result = await send_bizchat_media(to, qr_url, caption, f"rama-bazaar-{qr_id}.png")
+    result = await send_bizchat_template(
+        to_mobile=to,
+        template_name=template,
+        header_image=qr_url,           # template's header IMAGE variable receives the branded QR poster
+        fields=[v.get("full_name", "")],  # {{1}} in body = name (override in your approved template as needed)
+        name=v.get("full_name", ""),
+    )
     return {"sent": True, "result": result}
 
 # ---------- Startup ----------
