@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, UserPlus, BookOpen, QrCode, User } from "lucide-react";
+import { Home, UserPlus, BookOpen, QrCode } from "lucide-react";
 
 const items = [
   { to: "/", icon: Home, label: "Home" },
@@ -18,7 +18,7 @@ export default function BottomNav() {
       className="fixed bottom-0 inset-x-0 z-40 bg-[#f8f7f4]/90 backdrop-blur-md border-t"
       style={{ borderColor: "rgba(178,135,61,0.18)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="max-w-xl mx-auto grid grid-cols-5">
+      <ul className="max-w-xl mx-auto grid grid-cols-4">
         {items.map((it) => {
           const active = pathname === it.to || (it.to !== "/" && pathname.startsWith(it.to));
           const Icon = it.icon;
