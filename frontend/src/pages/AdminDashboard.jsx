@@ -1,0 +1,341 @@
+import React, { useEffect, useState } from "react";
+import { Link, NavLink, Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import TopBar from "../components/TopBar";
+import api, { formatError, API, BACKEND_URL } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { toast } from "sonner";
+import { LogOut } from "lucide-react";
+
+function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
+
+const TABS = [
+  ["overview", "Overview"],
+  ["visitors", "Visitors"],
+  ["exhibitors", "Exhibitors"],
+  ["members", "Members"],
+  ["sponsors", "Sponsors"],
+  ["settings", "Settings"],
+  ["attendance", "Attendance"],
+];
+
+export default function AdminDashboard() {
+  const { role, logout } = useAuth();
+  const nav = useNavigate();
+  if (role !== "admin") return <Navigate to="/admin/login" />;
+
+  return (
+    <div className="page-pad min-h-screen" data-testid="admin-dashboard">
+      <TopBar back title="Admin" right={<button data-testid="admin-logout" onClick={() => { logout(); nav("/"); }} className="text-xs uppercase tracking-luxe inline-flex items-center gap-2"><LogOut size={14}/> Logout</button>} />
+      <div className="max-w-6xl mx-auto px-5 pt-6">
+        <nav className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+          {TABS.map(([k, l]) => (
+            <NavLink key={k} to={`/admin/${k}`} data-testid={`admin-tab-${k}`} className={({ isActive }) => `px-4 py-2 rounded-full border text-xs uppercase tracking-luxe whitespace-nowrap ${isActive ? "bg-[#1f1f27] text-[#f8f7f4] border-[#1f1f27]" : "text-[#1f1f27]"}`} style={{ borderColor: "#d8bc84" }}>
+              {l}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="mt-6">
+          <Routes>
+            <Route index element={<Overview />} />
+            <Route path="overview" element={<Overview />} />
+            <Route path="visitors" element={<Visitors />} />
+            <Route path="exhibitors" element={<Exhibitors />} />
+            <Route path="members" element={<Members />} />
+            <Route path="sponsors" element={<Sponsors />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="attendance" element={<AttendanceRedirect />} />
+          </Routes>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AttendanceRedirect() { return <Navigate to="/attendance" replace />; }
+
+function Overview() {
+  const [s, setS] = useState(null);
+  useEffect(() => { api.get("/admin/stats").then((r) => setS(r.data)).catch(() => {}); }, []);
+  if (!s) return <div>Loading…</div>;
+  const cards = [
+    { l: "Total Visitors", v: s.total_visitors },
+    { l: "Checked-in", v: s.present_visitors, accent: true },
+    { l: "Pending Check-in", v: s.pending_visitors },
+    { l: "Exhibitors", v: s.total_exhibitors },
+    { l: "Approved", v: s.approved_exhibitors },
+    { l: "Slots Remaining", v: s.remaining_slots },
+    { l: "Ad Impressions", v: s.sponsor_impressions },
+    { l: "Ad Clicks", v: s.sponsor_clicks },
+  ];
+  return (
+    <div>
+      <div className="eyebrow">Overview</div>
+      <h2 className="font-serif-display text-3xl mt-2">Event at a glance</h2>
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+        {cards.map((c) => (
+          <div key={c.l} className="card-luxe p-5">
+            <div className="eyebrow">{c.l}</div>
+            <div className="font-serif-display text-4xl mt-2" style={{ color: c.accent ? "#b2873d" : "#1f1f27" }}>{c.v}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Visitors() {
+  const [items, setItems] = useState([]);
+  const [q, setQ] = useState("");
+  const load = () => api.get("/admin/visitors").then((r) => setItems(r.data || []));
+  useEffect(() => { load(); }, []);
+  const filtered = items.filter((v) => !q || [v.full_name, v.mobile, v.business_name, v.city, v.industry].some((x) => (x || "").toLowerCase().includes(q.toLowerCase())));
+  const exportCSV = () => {
+    const token = localStorage.getItem("rama_token");
+    fetch(`${API}/admin/visitors/export.csv`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.blob()).then((b) => { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "visitors.csv"; a.click(); });
+  };
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="font-serif-display text-3xl">Visitors</h2>
+        <div className="flex gap-2">
+          <input data-testid="visitors-search" className="input-luxe" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button data-testid="visitors-export" onClick={exportCSV} className="btn-outline-gold">Export CSV</button>
+        </div>
+      </div>
+      <div className="mt-6 card-luxe overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left" style={{ background: "#f3eddf" }}>
+              <tr>
+                {["Name", "Mobile", "Business", "City", "Industry", "Attended", "Created"].map((h) => <th key={h} className="px-3 py-2 eyebrow">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((v) => (
+                <tr key={v.id} className="border-t" style={{ borderColor: "rgba(178,135,61,0.18)" }}>
+                  <td className="px-3 py-2">{v.full_name}</td>
+                  <td className="px-3 py-2">{v.mobile}</td>
+                  <td className="px-3 py-2">{v.business_name}</td>
+                  <td className="px-3 py-2">{v.city}</td>
+                  <td className="px-3 py-2">{v.industry}</td>
+                  <td className="px-3 py-2" style={{ color: v.attended ? "#1f7a4d" : "#9a6b14" }}>{v.attended ? "Yes" : "No"}</td>
+                  <td className="px-3 py-2 text-xs" style={{ color: "#7a7868" }}>{v.created_at?.slice(0, 10)}</td>
+                </tr>
+              ))}
+              {filtered.length === 0 && <tr><td colSpan={7} className="text-center py-8" style={{ color: "#7a7868" }}>No visitors yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Exhibitors() {
+  const [items, setItems] = useState([]);
+  const load = () => api.get("/admin/exhibitors").then((r) => setItems(r.data || []));
+  useEffect(() => { load(); }, []);
+  const toggle = async (id, field, value) => {
+    await api.put(`/admin/exhibitors/${id}`, { [field]: value });
+    load();
+  };
+  const del = async (id) => { if (!window.confirm("Delete this exhibitor?")) return; await api.delete(`/admin/exhibitors/${id}`); load(); };
+  const reset = async (id) => {
+    const np = window.prompt("New password (min 6 chars):"); if (!np) return;
+    try { await api.post(`/admin/exhibitors/${id}/reset-password`, { new_password: np }); toast.success("Password reset"); }
+    catch (e) { toast.error(formatError(e.response?.data?.detail)); }
+  };
+  return (
+    <div>
+      <h2 className="font-serif-display text-3xl">Exhibitors</h2>
+      <div className="mt-6 grid md:grid-cols-2 gap-4">
+        {items.map((e) => (
+          <div key={e.id} className="card-luxe p-5" data-testid={`adm-ex-${e.id}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-[#efeae0] border" style={{ borderColor: "#d8bc84" }}>
+                {e.logo_url ? <img src={absUrl(e.logo_url)} alt="" className="w-full h-full object-cover" /> : null}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-serif-display text-xl truncate">{e.business_name}</div>
+                <div className="text-xs" style={{ color: "#7a7868" }}>{e.member_name} · {e.mobile}</div>
+                <div className="text-xs mt-1">{e.category}</div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs uppercase tracking-luxe">
+              <button onClick={() => toggle(e.id, "approved", !e.approved)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84", background: e.approved ? "#1f1f27" : "transparent", color: e.approved ? "#f8f7f4" : "#1f1f27" }}>{e.approved ? "Approved" : "Approve"}</button>
+              <button onClick={() => toggle(e.id, "featured", !e.featured)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84", background: e.featured ? "#b2873d" : "transparent", color: e.featured ? "#f8f7f4" : "#1f1f27" }}>{e.featured ? "Featured" : "Feature"}</button>
+              <button onClick={() => toggle(e.id, "hidden", !e.hidden)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84" }}>{e.hidden ? "Unhide" : "Hide"}</button>
+              <button onClick={() => reset(e.id)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84" }}>Reset Pw</button>
+              <button onClick={() => del(e.id)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84", color: "#a3361e" }}>Delete</button>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-sm" style={{ color: "#7a7868" }}>No exhibitor registrations yet.</div>}
+      </div>
+    </div>
+  );
+}
+
+function Members() {
+  const [items, setItems] = useState([]);
+  const [m, setM] = useState(""); const [note, setNote] = useState("");
+  const load = () => api.get("/admin/members").then((r) => setItems(r.data || []));
+  useEffect(() => { load(); }, []);
+  const add = async (e) => { e.preventDefault(); try { await api.post("/admin/members", { mobile: m, note }); setM(""); setNote(""); load(); } catch (err) { toast.error(formatError(err.response?.data?.detail)); } };
+  const upload = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const fd = new FormData(); fd.append("file", f);
+    try { const { data } = await api.post("/admin/members/bulk", fd, { headers: { "Content-Type": "multipart/form-data" } }); toast.success(`Added ${data.added}, skipped ${data.skipped}`); load(); }
+    catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+  };
+  const del = async (id) => { await api.delete(`/admin/members/${id}`); load(); };
+  return (
+    <div>
+      <h2 className="font-serif-display text-3xl">Allowed Member Numbers</h2>
+      <form onSubmit={add} className="mt-6 card-luxe p-5 grid sm:grid-cols-3 gap-3">
+        <input data-testid="mem-mobile" className="input-luxe" placeholder="Mobile (10 digits)" value={m} onChange={(e) => setM(e.target.value)} inputMode="numeric" required/>
+        <input className="input-luxe" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <button data-testid="mem-add" className="btn-gold">Add Member</button>
+      </form>
+      <div className="mt-4 card-luxe p-5">
+        <div className="eyebrow mb-2">Bulk Upload (CSV: mobile, note)</div>
+        <input data-testid="mem-bulk" type="file" accept=".csv,text/csv" onChange={upload} />
+      </div>
+      <div className="mt-6 card-luxe overflow-hidden">
+        <table className="w-full text-sm">
+          <thead style={{ background: "#f3eddf" }}><tr><th className="px-3 py-2 text-left eyebrow">Mobile</th><th className="px-3 py-2 text-left eyebrow">Note</th><th className="px-3 py-2 text-left eyebrow">Added</th><th className="px-3 py-2"></th></tr></thead>
+          <tbody>
+            {items.map((it) => (
+              <tr key={it.id} className="border-t" style={{ borderColor: "rgba(178,135,61,0.18)" }}>
+                <td className="px-3 py-2">{it.mobile}</td>
+                <td className="px-3 py-2">{it.note}</td>
+                <td className="px-3 py-2 text-xs" style={{ color: "#7a7868" }}>{it.created_at?.slice(0, 10)}</td>
+                <td className="px-3 py-2 text-right"><button onClick={() => del(it.id)} className="text-xs uppercase tracking-luxe" style={{ color: "#a3361e" }}>Remove</button></td>
+              </tr>
+            ))}
+            {items.length === 0 && <tr><td colSpan={4} className="text-center py-8" style={{ color: "#7a7868" }}>No allowed numbers yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Sponsors() {
+  const empty = { name: "", placement: "inline", media_type: "image", media_url: "", link: "", active: true, order: 0 };
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(empty);
+  const [editing, setEditing] = useState(null);
+  const load = () => api.get("/admin/sponsor-ads").then((r) => setItems(r.data || []));
+  useEffect(() => { load(); }, []);
+  const upload = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const fd = new FormData(); fd.append("file", f);
+    const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+    setForm((s) => ({ ...s, media_url: data.url }));
+  };
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      if (editing) await api.put(`/admin/sponsor-ads/${editing}`, form);
+      else await api.post("/admin/sponsor-ads", form);
+      setForm(empty); setEditing(null); load();
+      toast.success("Saved");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+  };
+  const edit = (it) => { setForm({ name: it.name, placement: it.placement, media_type: it.media_type, media_url: it.media_url, link: it.link || "", active: it.active, order: it.order }); setEditing(it.id); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const del = async (id) => { if (!window.confirm("Delete this ad?")) return; await api.delete(`/admin/sponsor-ads/${id}`); load(); };
+  return (
+    <div>
+      <h2 className="font-serif-display text-3xl">Sponsor Ads</h2>
+      <form onSubmit={save} className="mt-6 card-luxe p-5 grid sm:grid-cols-2 gap-4">
+        <div className="sm:col-span-2 eyebrow">{editing ? "Edit Sponsor" : "Add Sponsor"}</div>
+        <div><label className="label-luxe">Sponsor Name</label><input data-testid="ad-name" className="input-luxe" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} required/></div>
+        <div><label className="label-luxe">Placement</label>
+          <select className="input-luxe" value={form.placement} onChange={(e) => setForm({...form, placement: e.target.value})}>
+            <option value="inline">Inline (Roster)</option>
+            <option value="popup">Popup (Title Sponsor)</option>
+            <option value="footer">Footer</option>
+            <option value="featured">Featured Section</option>
+          </select>
+        </div>
+        <div><label className="label-luxe">Media Type</label>
+          <select className="input-luxe" value={form.media_type} onChange={(e) => setForm({...form, media_type: e.target.value})}>
+            <option value="image">Image</option><option value="video">Video</option>
+          </select>
+        </div>
+        <div><label className="label-luxe">Order</label><input type="number" className="input-luxe" value={form.order} onChange={(e) => setForm({...form, order: parseInt(e.target.value || 0)})}/></div>
+        <div className="sm:col-span-2">
+          <label className="label-luxe">Media Upload</label>
+          <input type="file" accept="image/*,video/*" onChange={upload} />
+          {form.media_url && <div className="mt-2 text-xs" style={{ color: "#7a7868" }}>{form.media_url}</div>}
+        </div>
+        <div className="sm:col-span-2"><label className="label-luxe">Link URL</label><input className="input-luxe" value={form.link} onChange={(e) => setForm({...form, link: e.target.value})}/></div>
+        <div className="sm:col-span-2 flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={form.active} onChange={(e) => setForm({...form, active: e.target.checked})}/> Active</label>
+          <button data-testid="ad-save" className="btn-gold ml-auto">{editing ? "Update" : "Add"}</button>
+          {editing && <button type="button" onClick={() => { setForm(empty); setEditing(null); }} className="btn-outline-gold">Cancel</button>}
+        </div>
+      </form>
+
+      <div className="mt-6 grid md:grid-cols-2 gap-4">
+        {items.map((it) => (
+          <div key={it.id} className="card-luxe overflow-hidden">
+            <div className="aspect-[16/9] bg-[#efeae0]">
+              {it.media_type === "video" ? <video src={absUrl(it.media_url)} muted className="w-full h-full object-cover"/> : <img src={absUrl(it.media_url)} alt="" className="w-full h-full object-cover" />}
+            </div>
+            <div className="p-4">
+              <div className="flex items-center justify-between"><div className="font-serif-display text-xl">{it.name}</div><span className="eyebrow" style={{ color: it.active ? "#1f7a4d" : "#9a6b14" }}>{it.active ? "Active" : "Inactive"}</span></div>
+              <div className="text-xs mt-1" style={{ color: "#7a7868" }}>{it.placement} · imp {it.impressions || 0} · clk {it.clicks || 0}</div>
+              <div className="mt-3 flex gap-2 text-xs uppercase tracking-luxe">
+                <button onClick={() => edit(it)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84" }}>Edit</button>
+                <button onClick={() => del(it.id)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84", color: "#a3361e" }}>Delete</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Settings() {
+  const [s, setS] = useState(null);
+  useEffect(() => { api.get("/admin/settings").then((r) => setS(r.data)); }, []);
+  if (!s) return <div>Loading…</div>;
+  const save = async () => {
+    try { const { data } = await api.put("/admin/settings", s); setS(data); toast.success("Settings saved"); }
+    catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+  };
+  const F = (k, label) => (
+    <div><label className="label-luxe">{label}</label><input data-testid={`set-${k}`} className="input-luxe" value={s[k] || ""} onChange={(e) => setS({...s, [k]: e.target.value})}/></div>
+  );
+  const FT = (k, label) => (
+    <div><label className="label-luxe">{label}</label><textarea rows={3} className="input-luxe resize-none" value={s[k] || ""} onChange={(e) => setS({...s, [k]: e.target.value})}/></div>
+  );
+  return (
+    <div>
+      <h2 className="font-serif-display text-3xl">Event Settings</h2>
+      <div className="mt-6 card-luxe p-5 grid sm:grid-cols-2 gap-4">
+        {F("event_name", "Event Name")}
+        {F("venue", "Venue")}
+        {F("venue_address", "Venue Address")}
+        {F("maps_link", "Maps Link")}
+        {F("start_date", "Start Date")}
+        {F("end_date", "End Date")}
+        <div><label className="label-luxe">Exhibitor Limit</label><input type="number" className="input-luxe" value={s.exhibitor_limit || 0} onChange={(e) => setS({...s, exhibitor_limit: parseInt(e.target.value || 0)})}/></div>
+        <div className="flex items-center gap-4 pt-7">
+          <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.visitor_registration_open} onChange={(e) => setS({...s, visitor_registration_open: e.target.checked})}/> Visitor Registration Open</label>
+          <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.exhibitor_registration_open} onChange={(e) => setS({...s, exhibitor_registration_open: e.target.checked})}/> Exhibitor Registration Open</label>
+        </div>
+        <div className="sm:col-span-2">{FT("whatsapp_template_visitor", "WhatsApp Template — Visitor ({name} supported)")}</div>
+        <div className="sm:col-span-2">{FT("whatsapp_template_exhibitor", "WhatsApp Template — Exhibitor ({name})")}</div>
+        <div className="sm:col-span-2 eyebrow mt-4">BizChat WhatsApp API</div>
+        {F("bizchat_vendor_uid", "BizChat Vendor UID")}
+        {F("bizchat_token", "BizChat Token")}
+        <div className="sm:col-span-2 flex justify-end"><button data-testid="set-save" onClick={save} className="btn-gold">Save Settings</button></div>
+      </div>
+    </div>
+  );
+}
