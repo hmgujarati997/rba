@@ -7,7 +7,6 @@ const items = [
   { to: "/register", icon: UserPlus, label: "Visit" },
   { to: "/roster", icon: BookOpen, label: "Roster" },
   { to: "/my-qr", icon: QrCode, label: "My QR" },
-  { to: "/exhibitor/login", icon: User, label: "Stall" },
 ];
 
 export default function BottomNav() {
