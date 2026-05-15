@@ -8,9 +8,30 @@ import api, { BACKEND_URL } from "../lib/api";
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
 
 const WHY = [
-  { t: "Premium Network", d: "Connect with handpicked LVB Rama members and a curated audience of business owners." },
-  { t: "Showcase Authority", d: "Present your craft on a refined stage built to elevate every brand." },
-  { t: "Grow Tangibly", d: "Generate qualified leads, partnerships and lifelong business relationships." },
+  {
+    t: "One Room. Every Right Person.",
+    d: "The founders, decision-makers and craftspeople you'd otherwise chase for months — gathered, available, walking the same floor as you.",
+  },
+  {
+    t: "Deals Reserved for the Room.",
+    d: "Exhibitors bring bazaar-only pricing, trade terms and festive-season bundles you won't find online or in stores. Walk out with offers that pay for the trip.",
+  },
+  {
+    t: "Discover Before Anyone Else.",
+    d: "Unannounced launches, limited collections and private previews — most reach the open market months later, often at a different price.",
+  },
+  {
+    t: "Conversations That Open Doors.",
+    d: "Sourcing partners, distributors, capital, hires, mentors — built over a quiet afternoon, not another cold message. The kind of meetings that don't happen on calendars.",
+  },
+  {
+    t: "Curated, Not Crowded.",
+    d: "Every exhibitor is a vetted LVB Rama member. No filler stalls, no time-wasters — two unhurried hours here is a month of qualified meetings elsewhere.",
+  },
+  {
+    t: "An Experience Worth Showing Up For.",
+    d: "Considered hospitality, refined details and the company of people who take their craft seriously. The kind of room you want to be seen in.",
+  },
 ];
 
 const FAQS = [
@@ -85,7 +106,10 @@ export default function Landing() {
       {/* WHY */}
       <section className="max-w-xl mx-auto px-6 py-16">
         <div className="eyebrow">Why Visit</div>
-        <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">Three reasons. One unforgettable day.</h2>
+        <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">Six reasons people clear their calendar.</h2>
+        <p className="mt-4 text-base leading-relaxed" style={{ color: "#3b3b46" }}>
+          Most exhibitions chase footfall. Rama Bazaar 1.0 chases the right footfall — and rewards the people who show up.
+        </p>
         <div className="mt-8 space-y-6">
           {WHY.map((w, i) => (
             <div key={i} className="card-luxe p-6">
