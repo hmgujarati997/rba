@@ -255,7 +255,24 @@ export default function Landing() {
           <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>An Initiative By</span>
           <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 26, width: "auto", opacity: 0.8 }} loading="lazy" />
         </div>
-        <div className="mt-5 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
+
+        <div className="my-6 flex items-center justify-center gap-2.5">
+          <span style={{ height: 1, width: 24, background: "rgba(178,135,61,0.4)", display: "inline-block" }} />
+          <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>Technology Partner</span>
+          <span style={{ height: 1, width: 24, background: "rgba(178,135,61,0.4)", display: "inline-block" }} />
+        </div>
+        <a
+          href="https://rapidexpresstech.com"
+          target="_blank"
+          rel="noreferrer"
+          className="font-serif-display text-base inline-block transition-colors"
+          style={{ color: "#1f1f27", letterSpacing: "0.06em" }}
+          data-testid="tech-partner"
+        >
+          Rapid Express <span style={{ color: "#b2873d" }}>Technologies</span>
+        </a>
+
+        <div className="mt-6 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
       </footer>
     </div>
   );
