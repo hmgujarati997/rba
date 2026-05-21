@@ -86,12 +86,12 @@ export default function Landing() {
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="max-w-xl mx-auto px-6 pt-5 pb-16 sm:pt-8 sm:pb-24 text-center">
-          <div className="flex flex-col items-center gap-1.5 animate-fadeUp">
-            <span className="eyebrow" style={{ fontSize: 9 }}>An Initiative By</span>
+          <div className="flex flex-col items-center gap-2 animate-fadeUp">
+            <span className="eyebrow" style={{ fontSize: 10 }}>An Initiative By</span>
             <img
               src="/lvb-rama-ink.png"
               alt="LVB Rama Surat"
-              style={{ height: 22, width: "auto", opacity: 0.88 }}
+              style={{ height: 34, width: "auto", opacity: 0.9 }}
               loading="eager"
             />
           </div>
@@ -253,7 +253,7 @@ export default function Landing() {
         <Logo size="sm" />
         <div className="mt-5 flex flex-col items-center gap-1.5">
           <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>An Initiative By</span>
-          <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 18, width: "auto", opacity: 0.75 }} loading="lazy" />
+          <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 26, width: "auto", opacity: 0.8 }} loading="lazy" />
         </div>
         <div className="mt-5 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
       </footer>
