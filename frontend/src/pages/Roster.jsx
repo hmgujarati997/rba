@@ -63,8 +63,15 @@ export default function Roster() {
         <h1 className="font-serif-display text-4xl mt-2">{exhibitors.length} exhibitors. One curated room.</h1>
 
         <div className="mt-6 relative">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "#7a7868" }} />
-          <input data-testid="roster-search" className="input-luxe pl-10" placeholder="Search business, owner or product" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#7a7868" }} />
+          <input
+            data-testid="roster-search"
+            className="input-luxe"
+            style={{ paddingLeft: 44 }}
+            placeholder="Search business, owner or product"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
 
         <div className="mt-4 flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 pb-2">
