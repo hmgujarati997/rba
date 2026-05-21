@@ -58,25 +58,25 @@ export default function Landing() {
 
       {/* TITLE SPONSOR — top, above hero */}
       <section className="max-w-xl mx-auto px-6 pt-5 pb-1 animate-fadeUp" data-testid="title-sponsor-top">
-        <div className="flex items-center justify-center gap-2.5 mb-2.5">
-          <span style={{ height: 1, width: 18, background: "#b2873d", display: "inline-block" }} />
-          <span className="eyebrow" style={{ color: "#b2873d", fontSize: 9 }}>Title Sponsor</span>
-          <span style={{ height: 1, width: 18, background: "#b2873d", display: "inline-block" }} />
+        <div className="flex items-center justify-center gap-2.5 mb-3">
+          <span style={{ height: 1, width: 24, background: "#b2873d", display: "inline-block" }} />
+          <span className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Title Sponsor</span>
+          <span style={{ height: 1, width: 24, background: "#b2873d", display: "inline-block" }} />
         </div>
         <div
           className="rounded-xl overflow-hidden"
           style={{
             background: "#1B194B",
-            border: "1px solid rgba(193,155,48,0.40)",
-            boxShadow: "0 8px 24px -14px rgba(27,25,75,0.45)",
+            border: "1px solid rgba(193,155,48,0.45)",
+            boxShadow: "0 10px 32px -14px rgba(27,25,75,0.55), inset 0 0 0 1px rgba(193,155,48,0.10)",
           }}
         >
-          <div className="px-4 py-4 sm:py-5 flex items-center justify-center">
+          <div className="px-5 py-3 sm:py-3.5 flex items-center justify-center">
             <img
               src="/sponsors/coco-salons.svg"
               alt="Coco Salons — Hair, Beauty Salon & Nail Studio"
               className="w-full h-auto"
-              style={{ maxWidth: 260 }}
+              style={{ maxWidth: 360 }}
               loading="eager"
             />
           </div>
