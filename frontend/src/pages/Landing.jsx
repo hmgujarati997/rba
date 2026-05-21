@@ -119,9 +119,34 @@ export default function Landing() {
             </div>
           )}
 
-          <button onClick={() => document.getElementById("about")?.scrollIntoView({ behavior: "smooth" })} aria-label="Scroll" className="mt-10 inline-flex flex-col items-center gap-1 text-xs" style={{ color: "#7a7868", letterSpacing: "0.22em" }}>
-            <span className="uppercase">Explore</span><ChevronDown size={14} />
-          </button>
+          {/* Technology Partner — small first-impression credit */}
+          <div className="mt-10 flex justify-center animate-fadeUp">
+            <a
+              href="https://rapidexpresstech.com"
+              target="_blank"
+              rel="noreferrer"
+              data-testid="hero-tech-partner"
+              className="flex flex-col items-center gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <span style={{ height: 1, width: 16, background: "rgba(178,135,61,0.5)" }} />
+                <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>Technology Partner</span>
+                <span style={{ height: 1, width: 16, background: "rgba(178,135,61,0.5)" }} />
+              </div>
+              <div className="flex items-center gap-2.5">
+                <img src="/partners/rxt.png" alt="Rapid Express Technologies" style={{ height: 22, width: "auto" }} />
+                <span className="font-serif-display" style={{ color: "#1f1f27", fontSize: 14, letterSpacing: "0.05em" }}>
+                  Rapid Express <span style={{ color: "#b2873d" }}>Technologies</span>
+                </span>
+              </div>
+            </a>
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            <button onClick={() => document.getElementById("about")?.scrollIntoView({ behavior: "smooth" })} aria-label="Scroll" className="inline-flex flex-col items-center gap-1 text-xs" style={{ color: "#7a7868", letterSpacing: "0.22em" }}>
+              <span className="uppercase">Explore</span><ChevronDown size={14} />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -249,30 +274,12 @@ export default function Landing() {
         </section>
       )}
 
-      <footer className="max-w-xl mx-auto px-6 pb-24 text-center">
+      <footer className="max-w-xl mx-auto px-6 pt-4 pb-10 text-center">
         <Logo size="sm" />
         <div className="mt-5 flex flex-col items-center gap-1.5">
           <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>An Initiative By</span>
           <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 26, width: "auto", opacity: 0.8 }} loading="lazy" />
         </div>
-
-        <div className="my-6 flex items-center justify-center gap-2.5">
-          <span style={{ height: 1, width: 24, background: "rgba(178,135,61,0.4)", display: "inline-block" }} />
-          <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>Technology Partner</span>
-          <span style={{ height: 1, width: 24, background: "rgba(178,135,61,0.4)", display: "inline-block" }} />
-        </div>
-        <a
-          href="https://rapidexpresstech.com"
-          target="_blank"
-          rel="noreferrer"
-          className="font-serif-display text-base inline-block transition-colors"
-          style={{ color: "#1f1f27", letterSpacing: "0.06em" }}
-          data-testid="tech-partner"
-        >
-          Rapid Express <span style={{ color: "#b2873d" }}>Technologies</span>
-        </a>
-
-        <div className="mt-6 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
       </footer>
     </div>
   );

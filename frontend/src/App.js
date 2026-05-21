@@ -16,6 +16,7 @@ import Roster from "@/pages/Roster";
 import Attendance from "@/pages/Attendance";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import SiteFooter from "@/components/SiteFooter";
 
 function ProtectedExhibitor({ children }) {
   const { ready, role } = useAuth();
@@ -50,6 +51,7 @@ function Shell() {
         <Route path="/admin/*" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {!hideNav && <SiteFooter inset />}
       {!hideNav && <BottomNav />}
     </div>
   );
