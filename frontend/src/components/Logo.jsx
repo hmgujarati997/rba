@@ -12,8 +12,8 @@ import React from "react";
 const SIZES = {
   sm: { emblem: 28, rama: 18, sub: 8,  tagline: 7,  gap: 5,  rule: 14 },
   md: { emblem: 70, rama: 38, sub: 13, tagline: 9,  gap: 9,  rule: 24 },
-  lg: { emblem: 108, rama: 56, sub: 18, tagline: 10, gap: 12, rule: 36 },
-  xl: { emblem: 150, rama: 76, sub: 22, tagline: 11, gap: 16, rule: 44 },
+  lg: { emblem: 100, rama: 52, sub: 17, tagline: 10, gap: 11, rule: 34 },
+  xl: { emblem: 128, rama: 64, sub: 19, tagline: 10, gap: 14, rule: 38 },
 };
 
 export default function Logo({ size = "md", variant = "stacked", inverse = false, className = "" }) {

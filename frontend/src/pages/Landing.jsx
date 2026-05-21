@@ -85,9 +85,17 @@ export default function Landing() {
 
       {/* HERO */}
       <section className="relative overflow-hidden">
-        <div className="max-w-xl mx-auto px-6 pt-6 pb-16 sm:pt-12 sm:pb-24 text-center">
-          <div className="eyebrow animate-fadeUp">An Exclusive LVB Rama Event</div>
-          <div className="mt-8 flex justify-center animate-fadeUp">
+        <div className="max-w-xl mx-auto px-6 pt-5 pb-16 sm:pt-8 sm:pb-24 text-center">
+          <div className="flex flex-col items-center gap-1.5 animate-fadeUp">
+            <span className="eyebrow" style={{ fontSize: 9 }}>An Initiative By</span>
+            <img
+              src="/lvb-rama-ink.png"
+              alt="LVB Rama Surat"
+              style={{ height: 22, width: "auto", opacity: 0.88 }}
+              loading="eager"
+            />
+          </div>
+          <div className="mt-7 flex justify-center animate-fadeUp">
             <Logo size="xl" />
           </div>
           <p className="mt-10 text-base sm:text-lg leading-relaxed animate-fadeUp" style={{ color: "#3b3b46" }}>
@@ -243,7 +251,11 @@ export default function Landing() {
 
       <footer className="max-w-xl mx-auto px-6 pb-24 text-center">
         <Logo size="sm" />
-        <div className="mt-3 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
+        <div className="mt-5 flex flex-col items-center gap-1.5">
+          <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>An Initiative By</span>
+          <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 18, width: "auto", opacity: 0.75 }} loading="lazy" />
+        </div>
+        <div className="mt-5 eyebrow" style={{ color: "#7a7868" }}>© Rama Bazaar 1.0 · LVB Rama</div>
       </footer>
     </div>
   );
