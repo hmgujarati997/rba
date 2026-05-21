@@ -92,6 +92,36 @@ export default function Landing() {
 
       <div className="divider-thin" />
 
+      {/* TITLE SPONSOR */}
+      <section className="max-w-xl mx-auto px-6 pt-10 pb-12 animate-fadeUp">
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <span style={{ height: 1, width: 28, background: "#b2873d", display: "inline-block" }} />
+          <span className="eyebrow" style={{ color: "#b2873d" }}>Presented by · Title Sponsor</span>
+          <span style={{ height: 1, width: 28, background: "#b2873d", display: "inline-block" }} />
+        </div>
+        <div
+          className="overflow-hidden rounded-2xl"
+          style={{
+            background: "#1B194B",
+            border: "1px solid rgba(193,155,48,0.45)",
+            boxShadow: "0 10px 40px -16px rgba(27,25,75,0.45), inset 0 0 0 1px rgba(193,155,48,0.08)",
+          }}
+        >
+          <div className="px-6 py-10 sm:py-12 flex items-center justify-center">
+            <img
+              src="/sponsors/coco-salons.svg"
+              alt="Coco Salons — Hair, Beauty Salon & Nail Studio"
+              className="w-full h-auto"
+              style={{ maxWidth: 320 }}
+              loading="lazy"
+            />
+          </div>
+        </div>
+        <p className="mt-4 text-center text-xs" style={{ color: "#7a7868", letterSpacing: "0.16em" }}>
+          In gracious partnership with Rama Bazaar 1.0
+        </p>
+      </section>
+
       {/* ABOUT */}
       <section id="about" className="max-w-xl mx-auto px-6 py-16">
         <div className="eyebrow">About</div>
