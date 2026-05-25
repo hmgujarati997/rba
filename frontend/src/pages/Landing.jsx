@@ -152,6 +152,27 @@ export default function Landing() {
 
       <div className="divider-thin" />
 
+      {/* VENUE & DATE */}
+      <section className="max-w-xl mx-auto px-6 py-16">
+        <div className="eyebrow">Venue & Date</div>
+        <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">{settings.venue || "Venue to be announced"}</h2>
+        {settings.venue_address && (
+          <p className="mt-3 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{settings.venue_address}</p>
+        )}
+        {settings.start_date && (
+          <p className="mt-2 text-sm" style={{ color: "#3b3b46" }}>
+            {settings.start_date}{settings.end_date ? ` — ${settings.end_date}` : ""}
+          </p>
+        )}
+        {settings.maps_link && (
+          <a href={settings.maps_link} target="_blank" rel="noreferrer" className="mt-6 inline-flex btn-outline-gold">
+            <MapPin size={14} /> Open in Maps
+          </a>
+        )}
+      </section>
+
+      <div className="divider-thin" />
+
       {/* ABOUT */}
       <section id="about" className="max-w-xl mx-auto px-6 py-16">
         <div className="eyebrow">About</div>
