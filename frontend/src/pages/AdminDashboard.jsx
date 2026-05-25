@@ -260,7 +260,17 @@ function Members() {
   const del = async (id) => { await api.delete(`/admin/members/${id}`); load(); };
   return (
     <div>
-      <h2 className="font-serif-display text-3xl">Allowed Member Numbers</h2>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="font-serif-display text-3xl">Allowed Member Numbers</h2>
+        <div
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border"
+          style={{ borderColor: "#d8bc84", background: "#fbf8f0" }}
+          data-testid="members-total"
+        >
+          <span className="eyebrow" style={{ color: "#7a7868", fontSize: 10 }}>Total</span>
+          <span className="font-serif-display text-2xl leading-none" style={{ color: "#b2873d" }}>{items.length}</span>
+        </div>
+      </div>
       <form onSubmit={add} className="mt-6 card-luxe p-5 grid sm:grid-cols-3 gap-3">
         <input data-testid="mem-mobile" className="input-luxe" placeholder="Mobile (10 digits)" value={m} onChange={(e) => setM(e.target.value)} inputMode="numeric" required/>
         <input className="input-luxe" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
