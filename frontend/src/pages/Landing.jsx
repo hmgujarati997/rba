@@ -161,7 +161,8 @@ export default function Landing() {
         )}
         {settings.start_date && (
           <p className="mt-2 text-sm" style={{ color: "#3b3b46" }}>
-            {settings.start_date}{settings.end_date ? ` — ${settings.end_date}` : ""}
+            {settings.start_date}
+            {settings.end_date && settings.end_date !== settings.start_date ? ` — ${settings.end_date}` : ""}
           </p>
         )}
         {settings.maps_link && (
