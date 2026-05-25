@@ -82,7 +82,7 @@ export default function Roster() {
           ))}
         </div>
 
-        <div className="mt-6 space-y-4 pb-10">
+        <div className="mt-6 space-y-2.5 pb-10">
           {loading && Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)}
           {!loading && items.length === 0 && (
             <div className="text-center py-20" style={{ color: "#7a7868" }}>

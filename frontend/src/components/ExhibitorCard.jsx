@@ -1,5 +1,5 @@
 import React from "react";
-import { Phone, MessageCircle, Globe, Instagram, Share2, Bookmark, MapPin } from "lucide-react";
+import { Phone, MessageCircle, Globe, Instagram, Share2, Bookmark, MapPin, ChevronDown } from "lucide-react";
 import { BACKEND_URL } from "../lib/api";
 
 function absUrl(u) {
@@ -45,152 +45,222 @@ export default function ExhibitorCard({ exhibitor: ex }) {
   const [fav, setFav] = React.useState(() => new Set(JSON.parse(localStorage.getItem("rama_fav") || "[]")).has(ex.id));
   const [expanded, setExpanded] = React.useState(false);
   const waNumber = (ex.whatsapp || ex.mobile || "").replace(/\D/g, "");
-  const DESC_CAP = 180;
-  const PS_CAP = 220;
-  const descLong = (ex.description || "").length > DESC_CAP;
-  const psLong = (ex.products_services || "").length > PS_CAP;
-  const canExpand = descLong || psLong;
+
   return (
     <article
       id={ex.id}
       data-testid={`exhibitor-card-${ex.id}`}
       className="card-luxe overflow-hidden animate-fadeUp"
     >
-      {/* LOGO SHOWCASE — same stage for every card; logos contain inside */}
-      <div
-        className="relative flex items-center justify-center border-b"
-        style={{
-          background: "#fbf8f0",
-          borderColor: "rgba(178,135,61,0.18)",
-          height: 150,
-          padding: "20px 28px",
-        }}
+      {/* SLIM ROW — always visible, tap to expand */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        data-testid={`exhibitor-row-${ex.id}`}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#fbf8f0]"
       >
-        {ex.logo_url ? (
-          <img
-            loading="lazy"
-            src={absUrl(ex.logo_url)}
-            alt={ex.business_name}
-            style={{ maxHeight: "100%", maxWidth: "78%", objectFit: "contain" }}
-          />
-        ) : (
-          <div className="flex flex-col items-center">
-            <div className="font-serif-display" style={{ fontSize: 72, color: "#b2873d", lineHeight: 1 }}>
-              {(ex.business_name || "R")[0]}
-            </div>
-            <div className="eyebrow mt-2" style={{ color: "#7a7868" }}>{ex.business_name}</div>
-          </div>
-        )}
-        {ex.featured && (
-          <span
-            className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[10px] uppercase font-medium"
-            style={{ background: "#1f1f27", color: "#f8f7f4", letterSpacing: "0.22em" }}
-          >
-            ★ Featured
-          </span>
-        )}
-      </div>
-
-      <div className="p-5">
-        <div className="flex items-start gap-4">
-          {/* Owner profile photo — circular, replaces former logo circle */}
-          <div
-            className="w-14 h-14 rounded-full overflow-hidden bg-[#efeae0] border flex items-center justify-center shrink-0"
-            style={{ borderColor: "#d8bc84" }}
-          >
-            {ex.profile_photo_url ? (
-              <img
-                loading="lazy"
-                src={absUrl(ex.profile_photo_url)}
-                alt={ex.member_name || ex.business_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="font-serif-display text-xl" style={{ color: "#b2873d" }}>
-                {(ex.member_name || ex.business_name || "R")[0]}
-              </span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="eyebrow truncate">{ex.category || "Exhibitor"}</div>
-            <h3 className="font-serif-display text-xl leading-tight mt-0.5 truncate" style={{ color: "#1f1f27" }}>{ex.business_name}</h3>
-            <div className="text-sm mt-0.5" style={{ color: "#7a7868" }}>{ex.member_name}</div>
-          </div>
-        </div>
-
-        {ex.description && (
-          <p className="mt-4 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>
-            {expanded || !descLong ? ex.description : `${ex.description.slice(0, DESC_CAP)}…`}
-          </p>
-        )}
-
-        {ex.products_services && (
-          <div className="mt-4">
-            <div className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Products & Services</div>
-            <p
-              className="mt-2 text-sm leading-relaxed whitespace-pre-line"
-              style={{ color: "#3b3b46" }}
-            >
-              {expanded || !psLong ? ex.products_services : `${ex.products_services.slice(0, PS_CAP)}…`}
-            </p>
-          </div>
-        )}
-
-        {canExpand && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            data-testid={`card-expand-${ex.id}`}
-            className="mt-3 inline-flex items-center gap-1 text-xs uppercase"
-            style={{ color: "#b2873d", letterSpacing: "0.22em" }}
-          >
-            {expanded ? "Show less" : "Read more"}
-            <span style={{ fontSize: 10 }}>{expanded ? "↑" : "↓"}</span>
-          </button>
-        )}
-
-        {(ex.address || ex.maps_link) && (
-          <div className="mt-3 flex items-start gap-2 text-xs" style={{ color: "#7a7868" }}>
-            <MapPin size={14} className="mt-0.5" />
-            <span className="truncate">
-              {ex.maps_link ? <a href={ex.maps_link} target="_blank" rel="noreferrer" className="underline underline-offset-2 decoration-[#d8bc84]">{ex.address || "View on Maps"}</a> : ex.address}
-            </span>
-          </div>
-        )}
-
-        <div className="divider-thin my-5" />
-
-        <div className="grid grid-cols-3 gap-2">
-          <a data-testid={`card-call-${ex.id}`} href={`tel:${ex.mobile}`} className="flex items-center justify-center gap-1.5 py-2.5 rounded-full border text-xs uppercase tracking-luxe" style={{ borderColor: "#d8bc84", color: "#1f1f27" }}>
-            <Phone size={14} /> Call
-          </a>
-          <a data-testid={`card-wa-${ex.id}`} href={`https://wa.me/${waNumber.length === 10 ? "91" + waNumber : waNumber}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 rounded-full border text-xs uppercase tracking-luxe" style={{ borderColor: "#d8bc84", color: "#1f1f27" }}>
-            <MessageCircle size={14} /> WhatsApp
-          </a>
-          {ex.website ? (
-            <a data-testid={`card-site-${ex.id}`} href={ex.website} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 rounded-full border text-xs uppercase tracking-luxe" style={{ borderColor: "#d8bc84", color: "#1f1f27" }}>
-              <Globe size={14} /> Site
-            </a>
-          ) : ex.instagram ? (
-            <a data-testid={`card-ig-${ex.id}`} href={ex.instagram} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 py-2.5 rounded-full border text-xs uppercase tracking-luxe" style={{ borderColor: "#d8bc84", color: "#1f1f27" }}>
-              <Instagram size={14} /> Insta
-            </a>
+        {/* Compact logo tile */}
+        <div
+          className="w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center shrink-0 border"
+          style={{ background: "#fbf8f0", borderColor: "rgba(178,135,61,0.30)" }}
+        >
+          {ex.logo_url ? (
+            <img
+              loading="lazy"
+              src={absUrl(ex.logo_url)}
+              alt={ex.business_name}
+              style={{ maxWidth: "82%", maxHeight: "82%", objectFit: "contain" }}
+            />
           ) : (
-            <button onClick={() => shareCard(ex)} data-testid={`card-share-${ex.id}`} className="flex items-center justify-center gap-1.5 py-2.5 rounded-full border text-xs uppercase tracking-luxe" style={{ borderColor: "#d8bc84", color: "#1f1f27" }}>
-              <Share2 size={14} /> Share
-            </button>
+            <span className="font-serif-display text-2xl" style={{ color: "#b2873d" }}>
+              {(ex.business_name || "R")[0]}
+            </span>
           )}
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button onClick={() => saveVCard(ex)} data-testid={`card-save-${ex.id}`} className="flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs uppercase tracking-luxe text-[#f8f7f4]" style={{ background: "#1f1f27" }}>
-            <Bookmark size={14} /> Save Contact
-          </button>
-          <button onClick={() => toggleFav(ex, setFav)} data-testid={`card-fav-${ex.id}`} className="flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs uppercase tracking-luxe border" style={{ borderColor: "#d8bc84", color: fav ? "#b2873d" : "#1f1f27" }}>
-            {fav ? "★ Favorited" : "☆ Favorite"}
-          </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3
+              className="font-serif-display text-base leading-tight truncate"
+              style={{ color: "#1f1f27" }}
+            >
+              {ex.business_name}
+            </h3>
+            {ex.featured && (
+              <span
+                className="shrink-0 text-[9px] uppercase font-medium px-1.5 py-0.5 rounded-full"
+                style={{ background: "#1f1f27", color: "#f8f7f4", letterSpacing: "0.16em" }}
+              >
+                ★
+              </span>
+            )}
+          </div>
+          <div className="text-xs mt-0.5 truncate" style={{ color: "#7a7868" }}>
+            {[ex.member_name, ex.category].filter(Boolean).join(" · ")}
+          </div>
         </div>
-      </div>
+
+        <ChevronDown
+          size={16}
+          style={{
+            color: "#b2873d",
+            transition: "transform 220ms ease",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        />
+      </button>
+
+      {/* EXPANDED DETAILS — only when row tapped */}
+      {expanded && (
+        <div className="border-t animate-fadeIn" style={{ borderColor: "rgba(178,135,61,0.18)" }}>
+          {/* LOGO SHOWCASE — full stage, only when expanded */}
+          <div
+            className="flex items-center justify-center"
+            style={{ background: "#fbf8f0", height: 140, padding: "20px 28px" }}
+          >
+            {ex.logo_url ? (
+              <img
+                src={absUrl(ex.logo_url)}
+                alt={ex.business_name}
+                style={{ maxHeight: "100%", maxWidth: "78%", objectFit: "contain" }}
+              />
+            ) : (
+              <div className="font-serif-display" style={{ fontSize: 56, color: "#b2873d" }}>
+                {(ex.business_name || "R")[0]}
+              </div>
+            )}
+          </div>
+
+          <div className="p-5 border-t" style={{ borderColor: "rgba(178,135,61,0.18)" }}>
+            <div className="flex items-start gap-4">
+              <div
+                className="w-12 h-12 rounded-full overflow-hidden bg-[#efeae0] border flex items-center justify-center shrink-0"
+                style={{ borderColor: "#d8bc84" }}
+              >
+                {ex.profile_photo_url ? (
+                  <img src={absUrl(ex.profile_photo_url)} alt={ex.member_name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-serif-display text-lg" style={{ color: "#b2873d" }}>
+                    {(ex.member_name || ex.business_name || "R")[0]}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="eyebrow truncate">{ex.category || "Exhibitor"}</div>
+                <h4 className="font-serif-display text-lg leading-tight mt-0.5 truncate" style={{ color: "#1f1f27" }}>
+                  {ex.business_name}
+                </h4>
+                <div className="text-sm mt-0.5" style={{ color: "#7a7868" }}>{ex.member_name}</div>
+              </div>
+            </div>
+
+            {ex.description && (
+              <p className="mt-4 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>
+                {ex.description}
+              </p>
+            )}
+
+            {ex.products_services && (
+              <div className="mt-4">
+                <div className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Products & Services</div>
+                <p className="mt-2 text-sm leading-relaxed whitespace-pre-line" style={{ color: "#3b3b46" }}>
+                  {ex.products_services}
+                </p>
+              </div>
+            )}
+
+            {(ex.address || ex.maps_link) && (
+              <div className="mt-4 flex items-start gap-2 text-xs" style={{ color: "#7a7868" }}>
+                <MapPin size={14} className="mt-0.5 shrink-0" />
+                <span className="break-words">
+                  {ex.maps_link ? (
+                    <a href={ex.maps_link} target="_blank" rel="noreferrer" className="underline underline-offset-2 decoration-[#d8bc84]">
+                      {ex.address || "View on Maps"}
+                    </a>
+                  ) : (
+                    ex.address
+                  )}
+                </span>
+              </div>
+            )}
+
+            <div className="divider-thin my-4" />
+
+            <div className="grid grid-cols-3 gap-2">
+              <a
+                data-testid={`card-call-${ex.id}`}
+                href={`tel:${ex.mobile}`}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
+                style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
+              >
+                <Phone size={13} /> Call
+              </a>
+              <a
+                data-testid={`card-wa-${ex.id}`}
+                href={`https://wa.me/${waNumber.length === 10 ? "91" + waNumber : waNumber}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
+                style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
+              >
+                <MessageCircle size={13} /> WhatsApp
+              </a>
+              {ex.website ? (
+                <a
+                  data-testid={`card-site-${ex.id}`}
+                  href={ex.website}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
+                  style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
+                >
+                  <Globe size={13} /> Site
+                </a>
+              ) : ex.instagram ? (
+                <a
+                  data-testid={`card-ig-${ex.id}`}
+                  href={ex.instagram}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
+                  style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
+                >
+                  <Instagram size={13} /> Insta
+                </a>
+              ) : (
+                <button
+                  onClick={() => shareCard(ex)}
+                  data-testid={`card-share-${ex.id}`}
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
+                  style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
+                >
+                  <Share2 size={13} /> Share
+                </button>
+              )}
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => saveVCard(ex)}
+                data-testid={`card-save-${ex.id}`}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-full text-[11px] uppercase tracking-luxe text-[#f8f7f4]"
+                style={{ background: "#1f1f27" }}
+              >
+                <Bookmark size={13} /> Save Contact
+              </button>
+              <button
+                onClick={() => toggleFav(ex, setFav)}
+                data-testid={`card-fav-${ex.id}`}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-full text-[11px] uppercase tracking-luxe border"
+                style={{ borderColor: "#d8bc84", color: fav ? "#b2873d" : "#1f1f27" }}
+              >
+                {fav ? "★ Favorited" : "☆ Favorite"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
