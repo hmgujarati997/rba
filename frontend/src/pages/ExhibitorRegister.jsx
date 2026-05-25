@@ -27,7 +27,14 @@ export default function ExhibitorRegister() {
       setSlots(data.slots_remaining);
       setStep(2);
     } catch (err) {
-      toast.error(formatError(err.response?.data?.detail) || "Not eligible");
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail || "";
+      if (status === 409 || /already registered/i.test(detail)) {
+        toast("This number is already registered — please sign in.");
+        nav("/exhibitor/login", { state: { mobile } });
+        return;
+      }
+      toast.error(formatError(detail) || "Not eligible");
     } finally { setLoading(false); }
   };
 

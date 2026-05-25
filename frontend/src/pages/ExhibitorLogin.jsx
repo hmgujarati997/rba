@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import api, { formatError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 
 export default function ExhibitorLogin() {
-  const [mobile, setMobile] = useState("");
+  const location = useLocation();
+  const [mobile, setMobile] = useState(location.state?.mobile || "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -31,6 +32,11 @@ export default function ExhibitorLogin() {
       <div className="max-w-xl mx-auto px-6 pt-8 pb-16">
         <div className="eyebrow">Exhibitor</div>
         <h1 className="font-serif-display text-4xl mt-3">Sign in to your stall.</h1>
+        {location.state?.mobile && (
+          <p className="mt-3 text-sm" style={{ color: "#3b3b46" }}>
+            This mobile number is already registered. Please enter your password to continue.
+          </p>
+        )}
         <form onSubmit={submit} className="mt-10 space-y-5">
           <div>
             <label className="label-luxe">Mobile</label>
@@ -38,7 +44,7 @@ export default function ExhibitorLogin() {
           </div>
           <div>
             <label className="label-luxe">Password</label>
-            <input data-testid="ex-login-password" type="password" className="input-luxe" value={password} onChange={(e)=>setPassword(e.target.value)} required/>
+            <input data-testid="ex-login-password" type="password" className="input-luxe" value={password} onChange={(e)=>setPassword(e.target.value)} required autoFocus={!!location.state?.mobile}/>
           </div>
           <button data-testid="ex-login-submit" disabled={loading} className="btn-gold w-full">{loading ? "Signing in…" : "Sign In"}</button>
         </form>
