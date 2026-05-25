@@ -122,7 +122,7 @@ export default function Landing() {
           {/* Technology Partner — small first-impression credit */}
           <div className="mt-10 flex justify-center animate-fadeUp">
             <a
-              href="https://rapidexpresstech.com"
+              href="https://rapidxt.com"
               target="_blank"
               rel="noreferrer"
               data-testid="hero-tech-partner"
@@ -229,19 +229,6 @@ export default function Landing() {
 
       <div className="divider-thin" />
 
-      {/* VENUE */}
-      <section className="max-w-xl mx-auto px-6 py-16">
-        <div className="eyebrow">Venue & Date</div>
-        <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">{settings.venue || "Venue to be announced"}</h2>
-        <p className="mt-3 text-sm" style={{ color: "#3b3b46" }}>{settings.venue_address || ""}</p>
-        {settings.start_date && <p className="mt-2 text-sm" style={{ color: "#3b3b46" }}>{settings.start_date}{settings.end_date ? ` — ${settings.end_date}` : ""}</p>}
-        {settings.maps_link && (
-          <a href={settings.maps_link} target="_blank" rel="noreferrer" className="mt-6 inline-flex btn-outline-gold">Open in Maps</a>
-        )}
-      </section>
-
-      <div className="divider-thin" />
-
       {/* FAQ */}
       <section className="max-w-xl mx-auto px-6 py-16">
         <div className="eyebrow">FAQ</div>
@@ -259,6 +246,45 @@ export default function Landing() {
         <h2 className="font-serif-display text-3xl mt-3">Reach the Rama Bazaar desk.</h2>
         <p className="mt-3 text-sm" style={{ color: "#3b3b46" }}>For sponsorships, partnerships and exhibitor support.</p>
         <a href="mailto:hello@ramabazaar.in" className="mt-6 inline-flex btn-gold">Write to us</a>
+      </section>
+
+      {/* FOOTER SPONSOR */}
+      {sponsors.footer?.length > 0 && (
+        <section className="max-w-xl mx-auto px-6 pb-10">
+          <div className="card-luxe overflow-hidden">
+            <div className="aspect-[3/1] bg-[#efeae0]">
+              <a href={sponsors.footer[0].link || "#"} target="_blank" rel="noreferrer">
+                <img src={absUrl(sponsors.footer[0].media_url)} alt={sponsors.footer[0].name} className="w-full h-full object-cover" loading="lazy"/>
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <footer className="max-w-xl mx-auto px-6 pt-4 pb-10 text-center">
+        <Logo size="sm" />
+        <div className="mt-5 flex flex-col items-center gap-1.5">
+          <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>An Initiative By</span>
+          <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 26, width: "auto", opacity: 0.8 }} loading="lazy" />
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function Faq({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b" style={{ borderColor: "rgba(178,135,61,0.18)" }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between py-4 text-left">
+        <span className="font-serif-display text-lg pr-4">{q}</span>
+        <span style={{ color: "#b2873d" }} className="text-xl">{open ? "−" : "+"}</span>
+      </button>
+      {open && <p className="pb-4 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{a}</p>}
+    </div>
+  );
+}
+ us</a>
       </section>
 
       {/* FOOTER SPONSOR */}

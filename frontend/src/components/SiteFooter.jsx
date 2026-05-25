@@ -22,7 +22,7 @@ export default function SiteFooter({ inset = true }) {
           <span style={{ height: 1, width: 22, background: "rgba(178,135,61,0.45)", display: "inline-block" }} />
         </div>
         <a
-          href="https://rapidexpresstech.com"
+          href="https://rapidxt.com"
           target="_blank"
           rel="noreferrer"
           data-testid="footer-rxt"
