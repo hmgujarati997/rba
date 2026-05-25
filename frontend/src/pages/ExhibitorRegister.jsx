@@ -14,7 +14,7 @@ export default function ExhibitorRegister() {
   const [info, setInfo] = useState({
     member_name: "", business_name: "", category: "", whatsapp: "", email: "",
     description: "", products_services: "", instagram: "", facebook: "", linkedin: "", website: "",
-    address: "", maps_link: "", logo_url: "", banner_url: "", profile_photo_url: ""
+    address: "", maps_link: "", logo_url: "", profile_photo_url: ""
   });
   const [loading, setLoading] = useState(false);
   const [slots, setSlots] = useState(null);
