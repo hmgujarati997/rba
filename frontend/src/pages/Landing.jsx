@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Calendar, ChevronDown } from "lucide-react";
+import { MapPin, Calendar, ChevronDown, MessageCircle } from "lucide-react";
 import Logo from "../components/Logo";
 import PopupBanner from "../components/PopupBanner";
 import api, { BACKEND_URL } from "../lib/api";
@@ -238,16 +238,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <div className="divider-thin" />
-
-      {/* CONTACT */}
-      <section className="max-w-xl mx-auto px-6 py-16 text-center">
-        <div className="eyebrow">Contact</div>
-        <h2 className="font-serif-display text-3xl mt-3">Reach the Rama Bazaar desk.</h2>
-        <p className="mt-3 text-sm" style={{ color: "#3b3b46" }}>For sponsorships, partnerships and exhibitor support.</p>
-        <a href="mailto:hello@ramabazaar.in" className="mt-6 inline-flex btn-gold">Write to us</a>
-      </section>
-
       {/* FOOTER SPONSOR */}
       {sponsors.footer?.length > 0 && (
         <section className="max-w-xl mx-auto px-6 pb-10">
@@ -261,30 +251,25 @@ export default function Landing() {
         </section>
       )}
 
-      <footer className="max-w-xl mx-auto px-6 pt-4 pb-10 text-center">
-        <Logo size="sm" />
-        <div className="mt-5 flex flex-col items-center gap-1.5">
-          <span className="eyebrow" style={{ fontSize: 9, color: "#7a7868" }}>An Initiative By</span>
-          <img src="/lvb-rama-ink.png" alt="LVB Rama Surat" style={{ height: 26, width: "auto", opacity: 0.8 }} loading="lazy" />
-        </div>
-      </footer>
-    </div>
-  );
-}
+      <div className="divider-thin" />
 
-function Faq({ q, a }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="border-b" style={{ borderColor: "rgba(178,135,61,0.18)" }}>
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between py-4 text-left">
-        <span className="font-serif-display text-lg pr-4">{q}</span>
-        <span style={{ color: "#b2873d" }} className="text-xl">{open ? "−" : "+"}</span>
-      </button>
-      {open && <p className="pb-4 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{a}</p>}
-    </div>
-  );
-}
- us</a>
+      {/* CONTACT */}
+      <section className="max-w-xl mx-auto px-6 py-16 text-center">
+        <div className="eyebrow">Contact</div>
+        <h2 className="font-serif-display text-3xl mt-3">Reach the Rama Bazaar desk.</h2>
+        <p className="mt-3 text-sm" style={{ color: "#3b3b46" }}>
+          For visitor queries, sponsorships, partnerships and exhibitor support — message us directly.
+        </p>
+        <a
+          href="https://wa.me/916359115299?text=Hello%20Rama%20Bazaar%20team%2C%20I%27d%20like%20to%20know%20more%20about%20the%20event."
+          target="_blank"
+          rel="noreferrer"
+          data-testid="contact-whatsapp"
+          className="mt-6 inline-flex btn-gold"
+        >
+          <MessageCircle size={14} /> Chat on WhatsApp
+        </a>
+        <p className="mt-4 text-xs" style={{ color: "#7a7868", letterSpacing: "0.16em" }}>+91 63591 15299</p>
       </section>
 
       {/* FOOTER SPONSOR */}
