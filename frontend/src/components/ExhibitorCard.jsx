@@ -43,7 +43,13 @@ function toggleFav(ex, setFav) {
 
 export default function ExhibitorCard({ exhibitor: ex }) {
   const [fav, setFav] = React.useState(() => new Set(JSON.parse(localStorage.getItem("rama_fav") || "[]")).has(ex.id));
+  const [expanded, setExpanded] = React.useState(false);
   const waNumber = (ex.whatsapp || ex.mobile || "").replace(/\D/g, "");
+  const DESC_CAP = 180;
+  const PS_CAP = 220;
+  const descLong = (ex.description || "").length > DESC_CAP;
+  const psLong = (ex.products_services || "").length > PS_CAP;
+  const canExpand = descLong || psLong;
   return (
     <article
       id={ex.id}
@@ -114,7 +120,7 @@ export default function ExhibitorCard({ exhibitor: ex }) {
 
         {ex.description && (
           <p className="mt-4 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>
-            {ex.description.length > 180 ? `${ex.description.slice(0, 180)}…` : ex.description}
+            {expanded || !descLong ? ex.description : `${ex.description.slice(0, DESC_CAP)}…`}
           </p>
         )}
 
@@ -125,9 +131,22 @@ export default function ExhibitorCard({ exhibitor: ex }) {
               className="mt-2 text-sm leading-relaxed whitespace-pre-line"
               style={{ color: "#3b3b46" }}
             >
-              {ex.products_services.length > 220 ? `${ex.products_services.slice(0, 220)}…` : ex.products_services}
+              {expanded || !psLong ? ex.products_services : `${ex.products_services.slice(0, PS_CAP)}…`}
             </p>
           </div>
+        )}
+
+        {canExpand && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            data-testid={`card-expand-${ex.id}`}
+            className="mt-3 inline-flex items-center gap-1 text-xs uppercase"
+            style={{ color: "#b2873d", letterSpacing: "0.22em" }}
+          >
+            {expanded ? "Show less" : "Read more"}
+            <span style={{ fontSize: 10 }}>{expanded ? "↑" : "↓"}</span>
+          </button>
         )}
 
         {(ex.address || ex.maps_link) && (
