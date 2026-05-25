@@ -69,7 +69,6 @@ export default function ExhibitorDashboard() {
             <Area k="description" v={form} u={update} label="Description" />
             <Area k="products_services" v={form} u={update} label="Products / Services" />
             <FilePick label="Logo" value={form.logo_url} onPick={(f) => uploadFile(f, "logo_url")} />
-            <FilePick label="Banner" value={form.banner_url} onPick={(f) => uploadFile(f, "banner_url")} />
             <FilePick label="Profile Photo" value={form.profile_photo_url} onPick={(f) => uploadFile(f, "profile_photo_url")} />
             <Row k="instagram" v={form} u={update} label="Instagram" />
             <Row k="facebook" v={form} u={update} label="Facebook" />
@@ -114,10 +113,21 @@ function PreviewCard({ ex }) {
     <div className="mt-8">
       <div className="eyebrow mb-3">Live Preview</div>
       <div className="card-luxe overflow-hidden">
-        {ex.banner_url && <div className="h-28 bg-[#efeae0]"><img src={absUrl(ex.banner_url)} alt="" className="w-full h-full object-cover"/></div>}
+        <div
+          className="flex items-center justify-center border-b"
+          style={{ background: "#fbf8f0", borderColor: "rgba(178,135,61,0.18)", height: 150, padding: "20px 28px" }}
+        >
+          {ex.logo_url ? (
+            <img src={absUrl(ex.logo_url)} alt={ex.business_name} style={{ maxHeight: "100%", maxWidth: "78%", objectFit: "contain" }} />
+          ) : (
+            <div className="font-serif-display" style={{ fontSize: 64, color: "#b2873d" }}>{(ex.business_name || "R")[0]}</div>
+          )}
+        </div>
         <div className="p-5">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full overflow-hidden bg-[#efeae0] border" style={{ borderColor: "#d8bc84" }}>{ex.logo_url ? <img src={absUrl(ex.logo_url)} className="w-full h-full object-cover" alt=""/> : null}</div>
+            <div className="w-14 h-14 rounded-full overflow-hidden bg-[#efeae0] border flex items-center justify-center" style={{ borderColor: "#d8bc84" }}>
+              {ex.profile_photo_url ? <img src={absUrl(ex.profile_photo_url)} className="w-full h-full object-cover" alt=""/> : <span className="font-serif-display text-xl" style={{ color: "#b2873d" }}>{(ex.member_name || ex.business_name || "R")[0]}</span>}
+            </div>
             <div>
               <div className="eyebrow">{ex.category}</div>
               <div className="font-serif-display text-2xl">{ex.business_name}</div>

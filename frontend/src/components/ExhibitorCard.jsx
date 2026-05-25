@@ -50,20 +50,59 @@ export default function ExhibitorCard({ exhibitor: ex }) {
       data-testid={`exhibitor-card-${ex.id}`}
       className="card-luxe overflow-hidden animate-fadeUp"
     >
-      {ex.banner_url && (
-        <div className="h-28 sm:h-32 w-full bg-[#efeae0] overflow-hidden">
-          <img loading="lazy" src={absUrl(ex.banner_url)} alt="" className="w-full h-full object-cover" />
-        </div>
-      )}
+      {/* LOGO SHOWCASE — same stage for every card; logos contain inside */}
+      <div
+        className="relative flex items-center justify-center border-b"
+        style={{
+          background: "#fbf8f0",
+          borderColor: "rgba(178,135,61,0.18)",
+          height: 150,
+          padding: "20px 28px",
+        }}
+      >
+        {ex.logo_url ? (
+          <img
+            loading="lazy"
+            src={absUrl(ex.logo_url)}
+            alt={ex.business_name}
+            style={{ maxHeight: "100%", maxWidth: "78%", objectFit: "contain" }}
+          />
+        ) : (
+          <div className="flex flex-col items-center">
+            <div className="font-serif-display" style={{ fontSize: 72, color: "#b2873d", lineHeight: 1 }}>
+              {(ex.business_name || "R")[0]}
+            </div>
+            <div className="eyebrow mt-2" style={{ color: "#7a7868" }}>{ex.business_name}</div>
+          </div>
+        )}
+        {ex.featured && (
+          <span
+            className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[10px] uppercase font-medium"
+            style={{ background: "#1f1f27", color: "#f8f7f4", letterSpacing: "0.22em" }}
+          >
+            ★ Featured
+          </span>
+        )}
+      </div>
+
       <div className="p-5">
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-full overflow-hidden bg-[#efeae0] border" style={{ borderColor: "#d8bc84" }}>
-            {ex.logo_url ? (
-              <img loading="lazy" src={absUrl(ex.logo_url)} alt={ex.business_name} className="w-full h-full object-cover" />
+          {/* Owner profile photo — circular, replaces former logo circle */}
+          <div
+            className="w-14 h-14 rounded-full overflow-hidden bg-[#efeae0] border flex items-center justify-center shrink-0"
+            style={{ borderColor: "#d8bc84" }}
+          >
+            {ex.profile_photo_url ? (
+              <img
+                loading="lazy"
+                src={absUrl(ex.profile_photo_url)}
+                alt={ex.member_name || ex.business_name}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <div className="w-full h-full flex items-center justify-center font-serif-display text-xl" style={{ color: "#b2873d" }}>
-                {(ex.business_name || "R")[0]}
-              </div>
+              <span className="font-serif-display text-xl" style={{ color: "#b2873d" }}>
+                {(ex.member_name || ex.business_name || "R")[0]}
+              </span>
             )}
           </div>
           <div className="flex-1 min-w-0">
@@ -71,9 +110,6 @@ export default function ExhibitorCard({ exhibitor: ex }) {
             <h3 className="font-serif-display text-xl leading-tight mt-0.5 truncate" style={{ color: "#1f1f27" }}>{ex.business_name}</h3>
             <div className="text-sm mt-0.5" style={{ color: "#7a7868" }}>{ex.member_name}</div>
           </div>
-          {ex.featured && (
-            <span className="eyebrow" style={{ color: "#b2873d" }}>★ Featured</span>
-          )}
         </div>
 
         {ex.description && (

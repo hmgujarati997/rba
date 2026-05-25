@@ -90,7 +90,6 @@ export default function ExhibitorRegister() {
             <FieldArea label="Products / Services" value={info.products_services} onChange={(v) => setInfo({...info, products_services: v})} testid="ex-ps"/>
 
             <FileField label="Logo" testid="ex-logo" value={info.logo_url} onPick={(f) => uploadFile(f, "logo_url")} />
-            <FileField label="Banner" testid="ex-banner" value={info.banner_url} onPick={(f) => uploadFile(f, "banner_url")} />
             <FileField label="Profile Photo" testid="ex-photo" value={info.profile_photo_url} onPick={(f) => uploadFile(f, "profile_photo_url")} />
 
             <Field label="Instagram" value={info.instagram} onChange={(v) => setInfo({...info, instagram: v})} testid="ex-ig"/>
