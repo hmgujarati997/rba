@@ -119,9 +119,22 @@ export default function Landing() {
                 </span>
               )}
               {settings.venue && (
-                <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                  <MapPin size={14} style={{ color: "#b2873d" }} /> {settings.venue}
-                </span>
+                settings.maps_link ? (
+                  <a
+                    href={settings.maps_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid="hero-venue-link"
+                    className="inline-flex items-center gap-2 whitespace-nowrap transition-colors"
+                    style={{ color: "#7a7868" }}
+                  >
+                    <MapPin size={14} style={{ color: "#b2873d" }} /> {settings.venue}
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                    <MapPin size={14} style={{ color: "#b2873d" }} /> {settings.venue}
+                  </span>
+                )
               )}
             </div>
           )}
@@ -162,7 +175,22 @@ export default function Landing() {
       {/* VENUE & DATE */}
       <section className="max-w-xl mx-auto px-6 py-16">
         <div className="eyebrow">Venue & Date</div>
-        <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">{settings.venue || "Venue to be announced"}</h2>
+        {settings.maps_link ? (
+          <a
+            href={settings.maps_link}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="venue-name-link"
+            className="font-serif-display text-3xl sm:text-4xl mt-3 inline-block transition-colors hover:underline underline-offset-8"
+            style={{ color: "#1f1f27", textDecorationColor: "#b2873d", textDecorationThickness: "1px" }}
+          >
+            {settings.venue || "Venue to be announced"}
+          </a>
+        ) : (
+          <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">
+            {settings.venue || "Venue to be announced"}
+          </h2>
+        )}
         {settings.venue_address && (
           <p className="mt-3 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{settings.venue_address}</p>
         )}
