@@ -109,12 +109,19 @@ export default function Landing() {
           </div>
 
           {(settings.start_date || settings.venue) && (
-            <div className="mt-12 flex items-center justify-center gap-6 text-xs uppercase" style={{ letterSpacing: "0.22em", color: "#7a7868" }}>
+            <div
+              className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-xs uppercase"
+              style={{ letterSpacing: "0.20em", color: "#7a7868" }}
+            >
               {settings.start_date && (
-                <span className="inline-flex items-center gap-2"><Calendar size={14} style={{ color: "#b2873d" }} /> {settings.start_date}</span>
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                  <Calendar size={14} style={{ color: "#b2873d" }} /> {settings.start_date}
+                </span>
               )}
               {settings.venue && (
-                <span className="inline-flex items-center gap-2"><MapPin size={14} style={{ color: "#b2873d" }} /> {settings.venue}</span>
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                  <MapPin size={14} style={{ color: "#b2873d" }} /> {settings.venue}
+                </span>
               )}
             </div>
           )}
