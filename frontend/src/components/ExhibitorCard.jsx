@@ -118,6 +118,18 @@ export default function ExhibitorCard({ exhibitor: ex }) {
           </p>
         )}
 
+        {ex.products_services && (
+          <div className="mt-4">
+            <div className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Products & Services</div>
+            <p
+              className="mt-2 text-sm leading-relaxed whitespace-pre-line"
+              style={{ color: "#3b3b46" }}
+            >
+              {ex.products_services.length > 220 ? `${ex.products_services.slice(0, 220)}…` : ex.products_services}
+            </p>
+          </div>
+        )}
+
         {(ex.address || ex.maps_link) && (
           <div className="mt-3 flex items-start gap-2 text-xs" style={{ color: "#7a7868" }}>
             <MapPin size={14} className="mt-0.5" />
