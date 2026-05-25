@@ -63,6 +63,8 @@ function Overview() {
     { l: "Pending Check-in", v: s.pending_visitors },
     { l: "Exhibitors", v: s.total_exhibitors },
     { l: "Approved", v: s.approved_exhibitors },
+    { l: "Paid", v: s.paid_exhibitors, accent: true },
+    { l: "Unpaid", v: s.unpaid_exhibitors },
     { l: "Slots Remaining", v: s.remaining_slots },
     { l: "Ad Impressions", v: s.sponsor_impressions },
     { l: "Ad Clicks", v: s.sponsor_clicks },
@@ -134,10 +136,16 @@ function Visitors() {
 
 function Exhibitors() {
   const [items, setItems] = useState([]);
+  const [filter, setFilter] = useState("all"); // all | unpaid | paid | pending | approved
   const load = () => api.get("/admin/exhibitors").then((r) => setItems(r.data || []));
   useEffect(() => { load(); }, []);
   const toggle = async (id, field, value) => {
     await api.put(`/admin/exhibitors/${id}`, { [field]: value });
+    load();
+  };
+  const togglePaid = async (e) => {
+    const next = !e.paid;
+    await api.put(`/admin/exhibitors/${e.id}`, { paid: next, paid_at: next ? new Date().toISOString() : null });
     load();
   };
   const del = async (id) => { if (!window.confirm("Delete this exhibitor?")) return; await api.delete(`/admin/exhibitors/${id}`); load(); };
@@ -146,13 +154,67 @@ function Exhibitors() {
     try { await api.post(`/admin/exhibitors/${id}/reset-password`, { new_password: np }); toast.success("Password reset"); }
     catch (e) { toast.error(formatError(e.response?.data?.detail)); }
   };
+
+  const filtered = items.filter((e) => {
+    if (filter === "paid") return !!e.paid;
+    if (filter === "unpaid") return !e.paid;
+    if (filter === "pending") return !e.approved;
+    if (filter === "approved") return !!e.approved;
+    return true;
+  });
+  const counts = {
+    all: items.length,
+    unpaid: items.filter((e) => !e.paid).length,
+    paid: items.filter((e) => !!e.paid).length,
+    pending: items.filter((e) => !e.approved).length,
+    approved: items.filter((e) => !!e.approved).length,
+  };
+
   return (
     <div>
-      <h2 className="font-serif-display text-3xl">Exhibitors</h2>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="font-serif-display text-3xl">Exhibitors</h2>
+        <div className="flex gap-2 flex-wrap">
+          {[
+            ["all", "All"],
+            ["unpaid", "Unpaid"],
+            ["paid", "Paid"],
+            ["pending", "Pending Approval"],
+            ["approved", "Approved"],
+          ].map(([k, l]) => (
+            <button
+              key={k}
+              data-testid={`exhibitor-filter-${k}`}
+              onClick={() => setFilter(k)}
+              className="px-3 py-1.5 rounded-full border text-xs uppercase tracking-luxe transition-colors"
+              style={{
+                borderColor: "#d8bc84",
+                background: filter === k ? "#1f1f27" : "transparent",
+                color: filter === k ? "#f8f7f4" : "#1f1f27",
+              }}
+            >
+              {l} · {counts[k]}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="mt-6 grid md:grid-cols-2 gap-4">
-        {items.map((e) => (
-          <div key={e.id} className="card-luxe p-5" data-testid={`adm-ex-${e.id}`}>
-            <div className="flex items-center gap-3">
+        {filtered.map((e) => (
+          <div key={e.id} className="card-luxe p-5 relative" data-testid={`adm-ex-${e.id}`}>
+            {/* Payment badge — top-right */}
+            <span
+              className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs uppercase tracking-luxe font-medium"
+              style={
+                e.paid
+                  ? { background: "#1f7a4d", color: "#f8f7f4", letterSpacing: "0.18em" }
+                  : { background: "#fbe7c2", color: "#7a5318", border: "1px solid #d8bc84", letterSpacing: "0.18em" }
+              }
+              data-testid={`adm-paid-badge-${e.id}`}
+            >
+              {e.paid ? "Paid" : "Unpaid"}
+            </span>
+
+            <div className="flex items-center gap-3 pr-20">
               <div className="w-12 h-12 rounded-full overflow-hidden bg-[#efeae0] border" style={{ borderColor: "#d8bc84" }}>
                 {e.logo_url ? <img src={absUrl(e.logo_url)} alt="" className="w-full h-full object-cover" /> : null}
               </div>
@@ -160,9 +222,15 @@ function Exhibitors() {
                 <div className="font-serif-display text-xl truncate">{e.business_name}</div>
                 <div className="text-xs" style={{ color: "#7a7868" }}>{e.member_name} · {e.mobile}</div>
                 <div className="text-xs mt-1">{e.category}</div>
+                {e.paid && e.paid_at && (
+                  <div className="text-xs mt-0.5" style={{ color: "#1f7a4d" }}>Paid on {String(e.paid_at).slice(0, 10)}</div>
+                )}
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2 text-xs uppercase tracking-luxe">
+              <button onClick={() => togglePaid(e)} data-testid={`adm-toggle-paid-${e.id}`} className="px-3 py-1.5 rounded-full border" style={{ borderColor: e.paid ? "#1f7a4d" : "#d8bc84", background: e.paid ? "#1f7a4d" : "transparent", color: e.paid ? "#f8f7f4" : "#1f1f27" }}>
+                {e.paid ? "Mark Unpaid" : "Mark Paid"}
+              </button>
               <button onClick={() => toggle(e.id, "approved", !e.approved)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84", background: e.approved ? "#1f1f27" : "transparent", color: e.approved ? "#f8f7f4" : "#1f1f27" }}>{e.approved ? "Approved" : "Approve"}</button>
               <button onClick={() => toggle(e.id, "featured", !e.featured)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84", background: e.featured ? "#b2873d" : "transparent", color: e.featured ? "#f8f7f4" : "#1f1f27" }}>{e.featured ? "Featured" : "Feature"}</button>
               <button onClick={() => toggle(e.id, "hidden", !e.hidden)} className="px-3 py-1.5 rounded-full border" style={{ borderColor: "#d8bc84" }}>{e.hidden ? "Unhide" : "Hide"}</button>
@@ -171,7 +239,7 @@ function Exhibitors() {
             </div>
           </div>
         ))}
-        {items.length === 0 && <div className="text-sm" style={{ color: "#7a7868" }}>No exhibitor registrations yet.</div>}
+        {filtered.length === 0 && <div className="text-sm" style={{ color: "#7a7868" }}>No exhibitors match this filter.</div>}
       </div>
     </div>
   );

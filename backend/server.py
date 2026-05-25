@@ -697,6 +697,7 @@ async def admin_stats(_: dict = Depends(require_admin)):
     present = await db.visitors.count_documents({"attended": True})
     total_ex = await db.exhibitors.count_documents({})
     approved_ex = await db.exhibitors.count_documents({"approved": True})
+    paid_ex = await db.exhibitors.count_documents({"paid": True})
     s = await get_settings()
     limit = int(s.get("exhibitor_limit", 100))
     ads = await db.sponsor_ads.find({}, {"_id": 0}).to_list(200)
@@ -708,6 +709,8 @@ async def admin_stats(_: dict = Depends(require_admin)):
         "pending_visitors": total_visitors - present,
         "total_exhibitors": total_ex,
         "approved_exhibitors": approved_ex,
+        "paid_exhibitors": paid_ex,
+        "unpaid_exhibitors": total_ex - paid_ex,
         "exhibitor_limit": limit,
         "remaining_slots": max(0, limit - total_ex),
         "sponsor_impressions": total_imp,
