@@ -145,6 +145,7 @@ class ExhibitorRegisterIn(BaseModel):
     products_services: Optional[str] = ""
     instagram: Optional[str] = ""
     facebook: Optional[str] = ""
+    linkedin: Optional[str] = ""
     website: Optional[str] = ""
     address: Optional[str] = ""
     maps_link: Optional[str] = ""
@@ -162,6 +163,7 @@ class ExhibitorUpdateIn(BaseModel):
     products_services: Optional[str] = None
     instagram: Optional[str] = None
     facebook: Optional[str] = None
+    linkedin: Optional[str] = None
     website: Optional[str] = None
     address: Optional[str] = None
     maps_link: Optional[str] = None

@@ -72,6 +72,7 @@ export default function ExhibitorDashboard() {
             <FilePick label="Profile Photo" value={form.profile_photo_url} onPick={(f) => uploadFile(f, "profile_photo_url")} />
             <Row k="instagram" v={form} u={update} label="Instagram" />
             <Row k="facebook" v={form} u={update} label="Facebook" />
+            <Row k="linkedin" v={form} u={update} label="LinkedIn" />
             <Row k="website" v={form} u={update} label="Website" />
             <Row k="address" v={form} u={update} label="Address" />
             <Row k="maps_link" v={form} u={update} label="Google Maps Link" />

@@ -1,6 +1,7 @@
 import React from "react";
-import { Phone, MessageCircle, Globe, Instagram, Share2, Bookmark, MapPin, ChevronDown } from "lucide-react";
+import { Phone, Bookmark, MapPin, ChevronDown, Share2 } from "lucide-react";
 import { BACKEND_URL } from "../lib/api";
+import SocialRow from "./SocialRow";
 
 function absUrl(u) {
   if (!u) return "";
@@ -44,7 +45,6 @@ function toggleFav(ex, setFav) {
 export default function ExhibitorCard({ exhibitor: ex }) {
   const [fav, setFav] = React.useState(() => new Set(JSON.parse(localStorage.getItem("rama_fav") || "[]")).has(ex.id));
   const [expanded, setExpanded] = React.useState(false);
-  const waNumber = (ex.whatsapp || ex.mobile || "").replace(/\D/g, "");
 
   return (
     <article
@@ -196,58 +196,13 @@ export default function ExhibitorCard({ exhibitor: ex }) {
               >
                 <Phone size={13} /> Call
               </a>
-              <a
-                data-testid={`card-wa-${ex.id}`}
-                href={`https://wa.me/${waNumber.length === 10 ? "91" + waNumber : waNumber}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
-                style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
-              >
-                <MessageCircle size={13} /> WhatsApp
-              </a>
-              {ex.website ? (
-                <a
-                  data-testid={`card-site-${ex.id}`}
-                  href={ex.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
-                  style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
-                >
-                  <Globe size={13} /> Site
-                </a>
-              ) : ex.instagram ? (
-                <a
-                  data-testid={`card-ig-${ex.id}`}
-                  href={ex.instagram}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
-                  style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
-                >
-                  <Instagram size={13} /> Insta
-                </a>
-              ) : (
-                <button
-                  onClick={() => shareCard(ex)}
-                  data-testid={`card-share-${ex.id}`}
-                  className="flex items-center justify-center gap-1.5 py-2 rounded-full border text-[11px] uppercase tracking-luxe"
-                  style={{ borderColor: "#d8bc84", color: "#1f1f27" }}
-                >
-                  <Share2 size={13} /> Share
-                </button>
-              )}
-            </div>
-
-            <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 onClick={() => saveVCard(ex)}
                 data-testid={`card-save-${ex.id}`}
                 className="flex items-center justify-center gap-1.5 py-2 rounded-full text-[11px] uppercase tracking-luxe text-[#f8f7f4]"
                 style={{ background: "#1f1f27" }}
               >
-                <Bookmark size={13} /> Save Contact
+                <Bookmark size={13} /> Save
               </button>
               <button
                 onClick={() => toggleFav(ex, setFav)}
@@ -255,7 +210,22 @@ export default function ExhibitorCard({ exhibitor: ex }) {
                 className="flex items-center justify-center gap-1.5 py-2 rounded-full text-[11px] uppercase tracking-luxe border"
                 style={{ borderColor: "#d8bc84", color: fav ? "#b2873d" : "#1f1f27" }}
               >
-                {fav ? "★ Favorited" : "☆ Favorite"}
+                {fav ? "★ Saved" : "☆ Favorite"}
+              </button>
+            </div>
+
+            {/* Social row */}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <SocialRow exhibitor={ex} />
+              <button
+                onClick={() => shareCard(ex)}
+                data-testid={`card-share-${ex.id}`}
+                aria-label="Share"
+                title="Share"
+                className="inline-flex items-center justify-center rounded-full border w-9 h-9 shrink-0"
+                style={{ borderColor: "#d8bc84", color: "#1f1f27", background: "#fff" }}
+              >
+                <Share2 size={15} strokeWidth={1.6} />
               </button>
             </div>
           </div>

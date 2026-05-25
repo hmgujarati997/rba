@@ -13,7 +13,7 @@ export default function ExhibitorRegister() {
   const [pass, setPass] = useState("");
   const [info, setInfo] = useState({
     member_name: "", business_name: "", category: "", whatsapp: "", email: "",
-    description: "", products_services: "", instagram: "", facebook: "", website: "",
+    description: "", products_services: "", instagram: "", facebook: "", linkedin: "", website: "",
     address: "", maps_link: "", logo_url: "", banner_url: "", profile_photo_url: ""
   });
   const [loading, setLoading] = useState(false);
@@ -101,6 +101,7 @@ export default function ExhibitorRegister() {
 
             <Field label="Instagram" value={info.instagram} onChange={(v) => setInfo({...info, instagram: v})} testid="ex-ig"/>
             <Field label="Facebook" value={info.facebook} onChange={(v) => setInfo({...info, facebook: v})} testid="ex-fb"/>
+            <Field label="LinkedIn" value={info.linkedin} onChange={(v) => setInfo({...info, linkedin: v})} testid="ex-in"/>
             <Field label="Website" value={info.website} onChange={(v) => setInfo({...info, website: v})} testid="ex-web"/>
             <Field label="Address" value={info.address} onChange={(v) => setInfo({...info, address: v})} testid="ex-addr"/>
             <Field label="Google Maps Link" value={info.maps_link} onChange={(v) => setInfo({...info, maps_link: v})} testid="ex-maps"/>
