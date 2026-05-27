@@ -587,13 +587,47 @@ async def change_password(payload: dict, user: dict = Depends(require_exhibitor)
 
 # ---------- Exhibitor Social Post (Generated Share Image) ----------
 SOCIAL_TEMPLATE_PATH = ROOT_DIR / "assets" / "social-template.png"
-# Coordinates measured from the 3000×3000 template:
-# - Transparent silhouette occupies (0, 25, 965, 2695) — left side
-# - Text rectangle inner-safe area: roughly (1010, 2070) → (2580, 2580)
-SILHOUETTE_BBOX = (0, 25, 965, 2695)
-TEXT_BOX = (1010, 2070, 2580, 2580)  # (x0, y0, x1, y1)
+# Render at half resolution (1500x1500) for ~10x speedup. Still crisp on WhatsApp/Instagram.
+RENDER_SCALE = 0.5
+RENDER_W = int(3000 * RENDER_SCALE)
+RENDER_H = int(3000 * RENDER_SCALE)
+# Coordinates scaled down from the original 3000×3000 layout:
+SILHOUETTE_BBOX = (int(0 * RENDER_SCALE), int(25 * RENDER_SCALE), int(965 * RENDER_SCALE), int(2695 * RENDER_SCALE))
+TEXT_BOX = (int(1010 * RENDER_SCALE), int(2070 * RENDER_SCALE), int(2580 * RENDER_SCALE), int(2580 * RENDER_SCALE))
 NAVY_INK = (27, 25, 75)
 GOLD_INK = (178, 135, 61)
+
+# Cache the resized template once at startup (avoids re-decoding 8MB PNG per request)
+_TEMPLATE_CACHE = {"img": None, "mtime": None}
+def _get_template():
+    from PIL import Image
+    if not SOCIAL_TEMPLATE_PATH.exists():
+        return None
+    mtime = SOCIAL_TEMPLATE_PATH.stat().st_mtime
+    if _TEMPLATE_CACHE["img"] is None or _TEMPLATE_CACHE["mtime"] != mtime:
+        t = Image.open(SOCIAL_TEMPLATE_PATH).convert("RGBA")
+        if t.size != (RENDER_W, RENDER_H):
+            t = t.resize((RENDER_W, RENDER_H), Image.LANCZOS)
+        _TEMPLATE_CACHE["img"] = t
+        _TEMPLATE_CACHE["mtime"] = mtime
+    return _TEMPLATE_CACHE["img"]
+
+# Generated-post cache (in-memory, up to 200 entries) keyed by exhibitor + framing + photo mtime
+_POST_CACHE: dict = {}
+_POST_CACHE_ORDER: list = []
+_POST_CACHE_MAX = 200
+
+def _post_cache_get(key: str):
+    return _POST_CACHE.get(key)
+
+def _post_cache_set(key: str, png: bytes):
+    if key in _POST_CACHE:
+        _POST_CACHE_ORDER.remove(key)
+    elif len(_POST_CACHE_ORDER) >= _POST_CACHE_MAX:
+        evict = _POST_CACHE_ORDER.pop(0)
+        _POST_CACHE.pop(evict, None)
+    _POST_CACHE[key] = png
+    _POST_CACHE_ORDER.append(key)
 
 def _truetype(size: int, bold: bool = False, italic: bool = False):
     """Resolve a luxury serif font with bold/italic variants.
@@ -675,32 +709,48 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
     if not ex:
         raise HTTPException(status_code=404, detail="Exhibitor not found")
 
-    from PIL import Image, ImageDraw, ImageOps
-    if not SOCIAL_TEMPLATE_PATH.exists():
+    from PIL import Image, ImageDraw
+    template = _get_template()
+    if template is None:
         raise HTTPException(status_code=500, detail="Social template missing on server")
 
-    template = Image.open(SOCIAL_TEMPLATE_PATH).convert("RGBA")
-    W, H = template.size
-
-    # Cream backdrop (matches template). The photo will paste here and template
-    # layers on top — transparent silhouette reveals the photo through.
-    canvas = Image.new("RGBA", (W, H), (248, 247, 244, 255))
-
-    # Place profile photo into the silhouette area
+    # ---- Cache key (exhibitor + framing + photo mtime) ----
     photo_url = ex.get("profile_photo_url") or ""
     photo_path: Optional[Path] = None
     if photo_url.startswith("/uploads/") or photo_url.startswith("/api/uploads/"):
         photo_path = UPLOAD_DIR / Path(photo_url).name
+    photo_mtime = photo_path.stat().st_mtime if (photo_path and photo_path.exists()) else 0
+    fx = max(0.0, min(1.0, float(ex.get("photo_focus_x") or 0.5)))
+    fy = max(0.0, min(1.0, float(ex.get("photo_focus_y") or 0.35)))
+    zoom = max(1.0, min(3.0, float(ex.get("photo_zoom") or 1.0)))
+    cache_key = "|".join([
+        ex.get("id", ""),
+        (ex.get("member_name") or "").strip(),
+        (ex.get("business_name") or "").strip(),
+        (ex.get("category") or "").strip(),
+        (ex.get("position") or "").strip(),
+        photo_url, f"{photo_mtime:.0f}",
+        f"{fx:.3f}", f"{fy:.3f}", f"{zoom:.3f}",
+        f"{_TEMPLATE_CACHE['mtime']:.0f}",
+    ])
+    cached = _post_cache_get(cache_key)
+    if cached:
+        return StreamingResponse(io.BytesIO(cached), media_type="image/png", headers={
+            "Content-Disposition": f'inline; filename="rama-bazaar-{ex.get("mobile","")}.png"',
+            "Cache-Control": "private, max-age=600",
+        })
+
+    canvas = Image.new("RGBA", (RENDER_W, RENDER_H), (248, 247, 244, 255))
+
+    # Place profile photo into the silhouette area
     if photo_path and photo_path.exists():
         try:
             photo = Image.open(photo_path).convert("RGB")
+            # Pre-shrink very large source photos to bound CPU work (max ~1800px)
+            if max(photo.size) > 1800:
+                photo.thumbnail((1800, 1800), Image.LANCZOS)
             x0, y0, x1, y1 = SILHOUETTE_BBOX
             target_w, target_h = x1 - x0, y1 - y0
-            # User-controlled framing (defaults: face slightly above center, no zoom)
-            fx = max(0.0, min(1.0, float(ex.get("photo_focus_x") or 0.5)))
-            fy = max(0.0, min(1.0, float(ex.get("photo_focus_y") or 0.35)))
-            zoom = max(1.0, min(3.0, float(ex.get("photo_zoom") or 1.0)))
-            # Aspect-preserving cover resize at zoom level (matches CSS background-size cover)
             photo_ratio = photo.width / photo.height
             target_ratio = target_w / target_h
             if photo_ratio > target_ratio:
@@ -710,7 +760,6 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
                 scaled_w = int(target_w * zoom)
                 scaled_h = int(scaled_w / photo_ratio)
             scaled = photo.resize((scaled_w, scaled_h), Image.LANCZOS)
-            # background-position percent behavior: align (fx,fy) of image to (fx,fy) of container
             ox = int(fx * (scaled_w - target_w))
             oy = int(fy * (scaled_h - target_h))
             ox = max(0, min(scaled_w - target_w, ox))
@@ -734,54 +783,53 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
     company = (ex.get("business_name") or "").strip()
     category = (ex.get("category") or "").strip().upper()
 
-    # Vertical budgeting — heights per line (bigger, premium feel)
+    # Vertical budgets (relative — works at any RENDER_SCALE)
     name_h_target = int(box_h * 0.34)
     pos_h_target = int(box_h * 0.13)
     co_h_target = int(box_h * 0.22)
     cat_h_target = int(box_h * 0.12)
 
-    # Fit each line. Auto-shrink if line too long. Higher minimums => always legible.
-    name_font, name_w, name_h = _fit_text(draw, name, box_w - 80, name_h_target, start_size=210, min_size=120, bold=True)
-    pos_font, pos_w, pos_h = _fit_text(draw, position or " ", box_w - 100, pos_h_target, start_size=72, min_size=48, italic=True)
-    co_font, co_w, co_h = _fit_text(draw, company, box_w - 80, co_h_target, start_size=130, min_size=78, bold=True)
-    # Category uses Cinzel (uppercase Roman serif) for the small-caps tracked look
-    from PIL import ImageFont as _IF
-    cat_font_size = 70
-    while cat_font_size >= 40:
+    s = RENDER_SCALE
+    name_font, name_w, name_h = _fit_text(draw, name, box_w - int(80*s), name_h_target, start_size=int(210*s), min_size=int(120*s), bold=True)
+    pos_font, pos_w, pos_h = _fit_text(draw, position or " ", box_w - int(100*s), pos_h_target, start_size=int(72*s), min_size=int(48*s), italic=True)
+    co_font, co_w, co_h = _fit_text(draw, company, box_w - int(80*s), co_h_target, start_size=int(130*s), min_size=int(78*s), bold=True)
+    # Category uses Cinzel
+    cat_font_size = int(70 * s)
+    cat_min = int(40 * s)
+    while cat_font_size >= cat_min:
         cf = _cinzel(cat_font_size)
         cbb = draw.textbbox((0, 0), category, font=cf)
-        if (cbb[2] - cbb[0]) <= box_w - 120 and (cbb[3] - cbb[1]) <= cat_h_target:
+        if (cbb[2] - cbb[0]) <= box_w - int(120*s) and (cbb[3] - cbb[1]) <= cat_h_target:
             break
-        cat_font_size -= 4
+        cat_font_size -= max(2, int(4 * s))
     cat_font = _cinzel(cat_font_size)
     cbb = draw.textbbox((0, 0), category, font=cat_font)
     cat_w, cat_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
 
-    # Layout: NAME / position / company / category — centered horizontally, stacked vertically
-    gap = max(12, int(box_h * 0.035))
+    gap = max(int(12*s), int(box_h * 0.035))
     total = name_h + (gap + pos_h if position else 0) + gap + co_h + gap + cat_h
     cy = ty0 + max(0, (box_h - total) // 2)
 
-    # NAME
     draw.text((tx0 + (box_w - name_w) // 2, cy), name, font=name_font, fill=NAVY_INK)
     cy += name_h + gap
-    # Position
     if position:
         draw.text((tx0 + (box_w - pos_w) // 2, cy), position, font=pos_font, fill=GOLD_INK)
         cy += pos_h + gap
-    # Company
     draw.text((tx0 + (box_w - co_w) // 2, cy), company, font=co_font, fill=NAVY_INK)
     cy += co_h + gap
-    # Category (Cinzel, gold)
     draw.text((tx0 + (box_w - cat_w) // 2, cy), category, font=cat_font, fill=GOLD_INK)
 
     buf = io.BytesIO()
-    canvas.convert("RGB").save(buf, format="PNG", optimize=True, compress_level=3)
-    buf.seek(0)
+    # Balance speed vs file size: compress_level=6 keeps render fast (<1.5s) but produces
+    # ~500KB PNGs instead of ~3MB. optimize=True is intentionally OFF (it's 10-20s slower).
+    canvas.convert("RGB").save(buf, format="PNG", optimize=False, compress_level=6)
+    png_bytes = buf.getvalue()
+    _post_cache_set(cache_key, png_bytes)
+
     fname = f"rama-bazaar-participation-{ex.get('mobile','')}.png"
-    return StreamingResponse(buf, media_type="image/png", headers={
+    return StreamingResponse(io.BytesIO(png_bytes), media_type="image/png", headers={
         "Content-Disposition": f'inline; filename="{fname}"',
-        "Cache-Control": "no-store",
+        "Cache-Control": "private, max-age=600",
     })
 
 # ---------- Public Roster ----------
@@ -1054,6 +1102,22 @@ async def startup():
         await db.admins.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
         logger.info(f"Updated admin password: {admin_email}")
     await get_settings()  # ensure default settings exist
+
+    # One-time migration: rewrite legacy /uploads/* URLs to /api/uploads/* so that
+    # the frontend (which routes only /api/* through the ingress) can fetch them.
+    for field in ("profile_photo_url", "logo_url", "banner_url"):
+        n = await db.exhibitors.update_many(
+            {field: {"$regex": "^/uploads/"}},
+            [{"$set": {field: {"$concat": ["/api", f"${field}"]}}}],
+        )
+        if n.modified_count:
+            logger.info(f"Migrated {n.modified_count} exhibitor docs: {field} /uploads/ -> /api/uploads/")
+    n = await db.sponsor_ads.update_many(
+        {"media_url": {"$regex": "^/uploads/"}},
+        [{"$set": {"media_url": {"$concat": ["/api", "$media_url"]}}}],
+    )
+    if n.modified_count:
+        logger.info(f"Migrated {n.modified_count} sponsor_ads: media_url /uploads/ -> /api/uploads/")
 
 @app.on_event("shutdown")
 async def shutdown():
