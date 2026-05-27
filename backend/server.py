@@ -154,9 +154,9 @@ class ExhibitorRegisterIn(BaseModel):
     logo_url: Optional[str] = ""
     banner_url: Optional[str] = ""
     profile_photo_url: Optional[str] = ""
-    photo_focus_x: Optional[float] = 0.5
-    photo_focus_y: Optional[float] = 0.35
-    photo_zoom: Optional[float] = 1.0
+    photo_focus_x: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
+    photo_focus_y: Optional[float] = Field(default=0.35, ge=0.0, le=1.0)
+    photo_zoom: Optional[float] = Field(default=1.0, ge=1.0, le=3.0)
 
 class ExhibitorUpdateIn(BaseModel):
     member_name: Optional[str] = None
@@ -176,9 +176,9 @@ class ExhibitorUpdateIn(BaseModel):
     logo_url: Optional[str] = None
     banner_url: Optional[str] = None
     profile_photo_url: Optional[str] = None
-    photo_focus_x: Optional[float] = None
-    photo_focus_y: Optional[float] = None
-    photo_zoom: Optional[float] = None
+    photo_focus_x: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    photo_focus_y: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    photo_zoom: Optional[float] = Field(default=None, ge=1.0, le=3.0)
 
 class PasswordResetIn(BaseModel):
     new_password: str

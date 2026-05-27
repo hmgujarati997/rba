@@ -28,7 +28,9 @@ Build a premium mobile-first PWA for "Rama Bazaar 1.0", an exclusive business ex
 ✅ Admin panel: stats, visitors (search + CSV export), exhibitors (approve/feature/hide/reset-pw/delete), allowed-members, sponsor-ads CRUD, event settings, attendance
 ✅ BizChat WhatsApp integration scaffolded: `/api/visitors/send-whatsapp/{qr_id}` (uses settings.bizchat_vendor_uid + token)
 ✅ Service worker + manifest + meta tags + OpenGraph
-✅ Backend pytest suite: 48/48 tests passing
+✅ Backend pytest suite: 60/61 tests passing (1 known ingress limitation)
+✅ Social Post Generator (Pillow): luxury Playfair Display + Cinzel fonts, photo composited into curved silhouette, exhibitor-controlled framing (drag focus + zoom slider), download/share via WhatsApp — see `GET /api/exhibitors/me/social-post.png`
+✅ Uploads served via `/api/uploads/*` (routes through Kubernetes ingress; legacy `/uploads/*` mount kept for in-container PIL access)
 
 ## Test Credentials
 - Admin: `admin@admin.com` / `Admin@123`
