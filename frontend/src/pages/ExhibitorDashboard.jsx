@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import TopBar from "../components/TopBar";
-import api, { formatError, BACKEND_URL } from "../lib/api";
+import api, { formatError, BACKEND_URL, API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { LogOut } from "lucide-react";
+import { LogOut, Download, Share2, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
@@ -62,6 +62,7 @@ export default function ExhibitorDashboard() {
         ) : (
           <div className="mt-8 space-y-5">
             <Row k="member_name" v={form} u={update} label="Member Name" />
+            <Row k="position" v={form} u={update} label="Position / Designation" />
             <Row k="business_name" v={form} u={update} label="Business Name" />
             <Row k="category" v={form} u={update} label="Category" />
             <Row k="whatsapp" v={form} u={update} label="WhatsApp" />
@@ -78,7 +79,96 @@ export default function ExhibitorDashboard() {
             <Row k="maps_link" v={form} u={update} label="Google Maps Link" />
           </div>
         )}
+
+        {/* SOCIAL POST GENERATOR */}
+        <SocialPostCard form={form} save={save} />
       </div>
+    </div>
+  );
+}
+
+function SocialPostCard({ form, save }) {
+  const [busy, setBusy] = useState(false);
+  const [cacheKey, setCacheKey] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const token = typeof window !== "undefined" ? localStorage.getItem("rama_token") : null;
+
+  const refreshPreview = React.useCallback(async () => {
+    try {
+      setBusy(true);
+      const res = await fetch(`${API}/exhibitors/me/social-post.png?ts=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      setPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(blob); });
+    } catch (e) {
+      toast.error("Could not build post — please retry");
+    } finally { setBusy(false); }
+  }, [token]);
+
+  useEffect(() => { refreshPreview(); /* eslint-disable-next-line */ }, [cacheKey]);
+
+  const onSaveAndRefresh = async () => { await save(); setCacheKey((k) => k + 1); };
+
+  const download = () => {
+    if (!previewUrl) return;
+    const a = document.createElement("a");
+    a.href = previewUrl;
+    a.download = `rama-bazaar-${(form.member_name || "post").replace(/\s+/g, "-")}.png`;
+    a.click();
+  };
+
+  const shareWA = async () => {
+    if (!previewUrl) return;
+    try {
+      const blob = await (await fetch(previewUrl)).blob();
+      const file = new File([blob], "rama-bazaar.png", { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "I am participating in Rama Bazaar 1.0" });
+        return;
+      }
+    } catch {}
+    const text = encodeURIComponent("I am participating in Rama Bazaar 1.0 — join us!");
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  };
+
+  return (
+    <div className="mt-10 card-luxe p-5" data-testid="social-post-card">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div className="eyebrow" style={{ color: "#b2873d" }}>Share Your Participation</div>
+          <h3 className="font-serif-display text-2xl mt-1">Download your social post</h3>
+          <p className="mt-1 text-xs" style={{ color: "#7a7868" }}>
+            Auto-generated from your profile. Update your <b>Position</b>, <b>Photo</b> and details above, save, then refresh.
+          </p>
+        </div>
+        <button onClick={onSaveAndRefresh} className="btn-outline-gold" disabled={busy} data-testid="social-refresh">
+          {busy ? "Updating…" : "Save & Refresh"}
+        </button>
+      </div>
+
+      <div className="mt-5 rounded-xl overflow-hidden border" style={{ borderColor: "rgba(178,135,61,0.30)", background: "#fbf8f0" }}>
+        {previewUrl ? (
+          <img src={previewUrl} alt="Your Rama Bazaar 1.0 social post" className="w-full h-auto" />
+        ) : (
+          <div className="aspect-square flex items-center justify-center text-sm" style={{ color: "#7a7868" }}>
+            {busy ? "Building your post…" : "Preview will appear here"}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button onClick={download} disabled={!previewUrl} className="btn-gold" data-testid="social-download">
+          <Download size={14} /> Download Post
+        </button>
+        <button onClick={shareWA} disabled={!previewUrl} className="btn-outline-gold" data-testid="social-share">
+          <MessageCircle size={14} /> Share on WhatsApp
+        </button>
+      </div>
+      <p className="mt-3 text-xs text-center" style={{ color: "#7a7868" }}>
+        Tip — upload a portrait photo with your face centred for the cleanest result.
+      </p>
     </div>
   );
 }

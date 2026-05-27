@@ -139,6 +139,7 @@ class ExhibitorRegisterIn(BaseModel):
     member_name: str
     business_name: str
     category: str
+    position: Optional[str] = ""
     whatsapp: Optional[str] = ""
     email: Optional[str] = ""
     description: Optional[str] = ""
@@ -157,6 +158,7 @@ class ExhibitorUpdateIn(BaseModel):
     member_name: Optional[str] = None
     business_name: Optional[str] = None
     category: Optional[str] = None
+    position: Optional[str] = None
     whatsapp: Optional[str] = None
     email: Optional[str] = None
     description: Optional[str] = None
@@ -204,8 +206,8 @@ class EventSettingsIn(BaseModel):
 
 # ---------- Sanitize helpers ----------
 EXHIBITOR_PUBLIC_FIELDS = {
-    "id", "mobile", "member_name", "business_name", "category", "whatsapp", "email",
-    "description", "products_services", "instagram", "facebook", "website",
+    "id", "mobile", "member_name", "business_name", "category", "position", "whatsapp", "email",
+    "description", "products_services", "instagram", "facebook", "linkedin", "website",
     "address", "maps_link", "logo_url", "banner_url", "profile_photo_url",
     "approved", "featured", "hidden", "created_at"
 }
@@ -574,6 +576,151 @@ async def change_password(payload: dict, user: dict = Depends(require_exhibitor)
         raise HTTPException(status_code=400, detail="Password too short")
     await db.exhibitors.update_one({"id": user["sub"]}, {"$set": {"password_hash": hash_password(new_pw)}})
     return {"ok": True}
+
+# ---------- Exhibitor Social Post (Generated Share Image) ----------
+SOCIAL_TEMPLATE_PATH = ROOT_DIR / "assets" / "social-template.png"
+# Coordinates measured from the 3000×3000 template:
+# - Transparent silhouette occupies (0, 25, 965, 2695) — left side
+# - Text rectangle inner-safe area: roughly (1010, 2070) → (2580, 2580)
+SILHOUETTE_BBOX = (0, 25, 965, 2695)
+TEXT_BOX = (1010, 2070, 2580, 2580)  # (x0, y0, x1, y1)
+NAVY_INK = (27, 25, 75)
+GOLD_INK = (178, 135, 61)
+
+def _truetype(size: int, bold: bool = False, italic: bool = False):
+    """Resolve a serif font from the system, with bold/italic variants."""
+    bold_italic = bold and italic
+    candidates = []
+    if bold_italic:
+        candidates += [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-BoldItalic.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSerifBoldItalic.ttf",
+        ]
+    elif bold:
+        candidates += [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
+        ]
+    elif italic:
+        candidates += [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSerifItalic.ttf",
+        ]
+    else:
+        candidates += [
+            "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+        ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                from PIL import ImageFont
+                return ImageFont.truetype(p, size)
+            except Exception:
+                pass
+    from PIL import ImageFont
+    return ImageFont.load_default()
+
+def _fit_text(draw, text: str, max_w: int, max_h: int, start_size: int, min_size: int, bold=False, italic=False):
+    """Auto-shrink the font size until text fits the given bounding box."""
+    from PIL import ImageFont
+    size = start_size
+    while size >= min_size:
+        font = _truetype(size, bold=bold, italic=italic)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        if w <= max_w and h <= max_h:
+            return font, w, h
+        size -= 4
+    font = _truetype(min_size, bold=bold, italic=italic)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return font, bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+@api.get("/exhibitors/me/social-post.png")
+async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
+    ex = await db.exhibitors.find_one({"id": user["sub"]}, {"_id": 0, "password_hash": 0})
+    if not ex:
+        raise HTTPException(status_code=404, detail="Exhibitor not found")
+
+    from PIL import Image, ImageDraw, ImageOps
+    if not SOCIAL_TEMPLATE_PATH.exists():
+        raise HTTPException(status_code=500, detail="Social template missing on server")
+
+    template = Image.open(SOCIAL_TEMPLATE_PATH).convert("RGBA")
+    W, H = template.size
+
+    # Cream backdrop (matches template). The photo will paste here and template
+    # layers on top — transparent silhouette reveals the photo through.
+    canvas = Image.new("RGBA", (W, H), (248, 247, 244, 255))
+
+    # Place profile photo into the silhouette area
+    photo_url = ex.get("profile_photo_url") or ""
+    photo_path: Optional[Path] = None
+    if photo_url.startswith("/uploads/"):
+        photo_path = UPLOAD_DIR / Path(photo_url).name
+    if photo_path and photo_path.exists():
+        try:
+            photo = Image.open(photo_path).convert("RGB")
+            x0, y0, x1, y1 = SILHOUETTE_BBOX
+            target = (x1 - x0, y1 - y0)
+            fitted = ImageOps.fit(photo, target, method=Image.LANCZOS, centering=(0.5, 0.35))
+            canvas.paste(fitted, (x0, y0))
+        except Exception as e:
+            logger.warning(f"social-post photo paste failed: {e}")
+
+    # Composite the template over the photo (template transparency reveals photo)
+    canvas.alpha_composite(template)
+
+    # Draw participation text inside the rectangle
+    draw = ImageDraw.Draw(canvas)
+    tx0, ty0, tx1, ty1 = TEXT_BOX
+    box_w = tx1 - tx0
+    box_h = ty1 - ty0
+
+    name = (ex.get("member_name") or "").strip().upper() or "MEMBER"
+    position = (ex.get("position") or "").strip()
+    company = (ex.get("business_name") or "").strip()
+    category = (ex.get("category") or "").strip().upper()
+
+    # Vertical budgeting — heights per line
+    name_h_target = int(box_h * 0.38)
+    pos_h_target = int(box_h * 0.13)
+    co_h_target = int(box_h * 0.20)
+    cat_h_target = int(box_h * 0.12)
+
+    # Fit each line. Auto-shrink if line too long.
+    name_font, name_w, name_h = _fit_text(draw, name, box_w - 40, name_h_target, start_size=170, min_size=70, bold=True)
+    pos_font, pos_w, pos_h = _fit_text(draw, position or " ", box_w - 60, pos_h_target, start_size=70, min_size=34, italic=True)
+    co_font, co_w, co_h = _fit_text(draw, company, box_w - 50, co_h_target, start_size=110, min_size=44, bold=True)
+    cat_font, cat_w, cat_h = _fit_text(draw, category, box_w - 60, cat_h_target, start_size=60, min_size=30, italic=True)
+
+    # Layout: NAME / position / company / category — centered horizontally, stacked vertically
+    gap = max(8, int(box_h * 0.03))
+    total = name_h + (gap + pos_h if position else 0) + gap + co_h + gap + cat_h
+    cy = ty0 + max(0, (box_h - total) // 2)
+
+    # NAME
+    draw.text((tx0 + (box_w - name_w) // 2, cy), name, font=name_font, fill=NAVY_INK)
+    cy += name_h + gap
+    # Position
+    if position:
+        draw.text((tx0 + (box_w - pos_w) // 2, cy), position, font=pos_font, fill=GOLD_INK)
+        cy += pos_h + gap
+    # Company
+    draw.text((tx0 + (box_w - co_w) // 2, cy), company, font=co_font, fill=NAVY_INK)
+    cy += co_h + gap
+    # Category (small, gold tracked)
+    draw.text((tx0 + (box_w - cat_w) // 2, cy), category, font=cat_font, fill=GOLD_INK)
+
+    buf = io.BytesIO()
+    canvas.convert("RGB").save(buf, format="PNG", optimize=True, compress_level=3)
+    buf.seek(0)
+    fname = f"rama-bazaar-participation-{ex.get('mobile','')}.png"
+    return StreamingResponse(buf, media_type="image/png", headers={
+        "Content-Disposition": f'inline; filename="{fname}"',
+        "Cache-Control": "no-store",
+    })
 
 # ---------- Public Roster ----------
 @api.get("/roster")
