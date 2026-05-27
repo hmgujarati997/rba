@@ -688,19 +688,21 @@ def _cinzel(size: int):
     return _truetype(size, bold=True)
 
 def _fit_text(draw, text: str, max_w: int, max_h: int, start_size: int, min_size: int, bold=False, italic=False):
-    """Auto-shrink the font size until text fits the given bounding box."""
-    from PIL import ImageFont
+    """Auto-shrink the font size until text fits the given bounding box.
+    Uses anchor='lt' so the returned width/height match the actual ink (matches
+    how we later draw the text with anchor='lt')."""
+    from PIL import ImageFont  # noqa: F401
     size = start_size
     while size >= min_size:
         font = _truetype(size, bold=bold, italic=italic)
-        bbox = draw.textbbox((0, 0), text, font=font)
+        bbox = draw.textbbox((0, 0), text, font=font, anchor="lt")
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
         if w <= max_w and h <= max_h:
             return font, w, h
         size -= 4
     font = _truetype(min_size, bold=bold, italic=italic)
-    bbox = draw.textbbox((0, 0), text, font=font)
+    bbox = draw.textbbox((0, 0), text, font=font, anchor="lt")
     return font, bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 @api.get("/exhibitors/me/social-post.png")
@@ -798,26 +800,26 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
     cat_min = int(40 * s)
     while cat_font_size >= cat_min:
         cf = _cinzel(cat_font_size)
-        cbb = draw.textbbox((0, 0), category, font=cf)
+        cbb = draw.textbbox((0, 0), category, font=cf, anchor="lt")
         if (cbb[2] - cbb[0]) <= box_w - int(120*s) and (cbb[3] - cbb[1]) <= cat_h_target:
             break
         cat_font_size -= max(2, int(4 * s))
     cat_font = _cinzel(cat_font_size)
-    cbb = draw.textbbox((0, 0), category, font=cat_font)
+    cbb = draw.textbbox((0, 0), category, font=cat_font, anchor="lt")
     cat_w, cat_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
 
     gap = max(int(12*s), int(box_h * 0.035))
     total = name_h + (gap + pos_h if position else 0) + gap + co_h + gap + cat_h
     cy = ty0 + max(0, (box_h - total) // 2)
 
-    draw.text((tx0 + (box_w - name_w) // 2, cy), name, font=name_font, fill=NAVY_INK)
+    draw.text((tx0 + (box_w - name_w) // 2, cy), name, font=name_font, fill=NAVY_INK, anchor="lt")
     cy += name_h + gap
     if position:
-        draw.text((tx0 + (box_w - pos_w) // 2, cy), position, font=pos_font, fill=GOLD_INK)
+        draw.text((tx0 + (box_w - pos_w) // 2, cy), position, font=pos_font, fill=GOLD_INK, anchor="lt")
         cy += pos_h + gap
-    draw.text((tx0 + (box_w - co_w) // 2, cy), company, font=co_font, fill=NAVY_INK)
+    draw.text((tx0 + (box_w - co_w) // 2, cy), company, font=co_font, fill=NAVY_INK, anchor="lt")
     cy += co_h + gap
-    draw.text((tx0 + (box_w - cat_w) // 2, cy), category, font=cat_font, fill=GOLD_INK)
+    draw.text((tx0 + (box_w - cat_w) // 2, cy), category, font=cat_font, fill=GOLD_INK, anchor="lt")
 
     buf = io.BytesIO()
     # Balance speed vs file size: compress_level=6 keeps render fast (<1.5s) but produces
