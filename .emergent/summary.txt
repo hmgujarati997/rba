@@ -1,0 +1,115 @@
+<analysis>**original_problem_statement**: Build a premium mobile-first PWA for “Rama Bazaar 1.0”, an exclusive business exhibition and networking event by LVB Rama. Needs Visitor/Exhibitor Registration, Digital Roster, QR code generation & attendance system, Admin panel, Sponsor ads engine. The aesthetic should be luxury, minimal, corporate (soft white/black/gold palette). Also requires Meta-approved WhatsApp template messaging via BizChat API and a dynamic personalized Social Post generator for exhibitors.
+
+**User's preferred language**: English (INSTRUCT next agent to respond in English only)
+
+**what currently exists?**: A fully functional React + FastAPI + MongoDB PWA. The application has implemented the required aesthetic, routing, and PWA capabilities. It includes comprehensive Admin panels (Exhibitors, Visitors, Settings, Allowed Members, BizChat templates), a Digital Roster with expandable slim-rows, QR generation/scanning via camera, and dynamic backend rendering of personalized Social Posts (using PIL).
+
+**Last working item**: 
+- Last item agent was working: The agent just proposed a plan via  to verify the enhancement made to the visibility of the Social Post feature (added prominent quick-action button at the top of the Exhibitor Dashboard) and is waiting for the user's response.
+- Status: USER VERIFICATION PENDING
+- Agent Testing Done: Y
+- Which testing method agent to use: Frontend testing agent or screenshot tool for UI validation
+- User Testing Done: N
+
+**All Pending/In progress Issue list**: 
+No pending issues blocking core functionality. 
+
+**In progress Task List**: 
+None active. Awaiting user response to the  plan proposal.
+
+**Upcoming and Future Tasks**:
+No pending major features. Maintain aesthetic coherence in case the user requests further sponsor or brand logo adjustments.
+
+**Completed work in this session**
+- Created base PWA architecture, layout, and global styling.
+- Implemented  fixes (including QR code dimension adjustments for WhatsApp sharing).
+- Removed unused links and Made with Emergent badges.
+- Integrated  for WhatsApp using Meta-approved templates.
+- Designed & integrated layered Brand Lockups: Title Sponsor (Coco Salons), LVB Rama, Rapid Express Technologies (Footer & Hero).
+- Created Admin functionality to mark Exhibitors as Paid / Unpaid.
+- Converted Roster view to an elegant slim row layout that expands inline on tap.
+- Added  and  to Exhibitor models.
+- Built a dynamic  endpoint using Pillow to composite the exhibitor's photo, name, and details onto a provided sponsor template.
+
+**Earlier issues found/mentioned but not fixed**
+None.
+
+**Known issue recurrence from previous fork**
+N/A (First job)
+
+**Code Architecture**
+- : Houses all endpoints, MongoDB interactions, Pydantic models, and the Pillow (PIL) social-post image generation logic.
+- : Reusable UI elements (, , , , ).
+- : Dedicated views (, , , , , etc.).
+
+**Key Technical Concepts**
+React, FastAPI, MongoDB, Tailwind CSS, PWA Service Workers, BizChat API (REST), Pillow (Python Image manipulation)
+
+**key DB schema**
+- : {name, mobile, business_name, category, city, referred_by, qr_id, present, present_at}
+- : {member_name, business_name, category, mobile, whatsapp, email, logo_url, profile_photo_url, description, products_services, instagram, facebook, website, linkedin, position, approved, featured, hidden, paid, paid_at}
+- : {mobile}
+
+**changes in tech stack**
+- Added  to  for backend image manipulation (Social Post generation).
+
+**All files of reference**
+-  (Core API and image manipulation)
+-  (UI for downloading social posts)
+-  (Expandable slim-row logic)
+-  (Handles dynamic SVG brand icons)
+-  (Global footer with sponsor credits)
+
+**Areas that need refactoring**:
+-  is over 860 lines. Logic related to  and  image generation should be modularized to route/service files if further scaling is required to maintain a production-ready application.
+
+**key api endpoints**
+- 
+- 
+- 
+-  (Auth restricted)
+- 
+
+**Critical Info for New Agent**
+- **Backend Restarts for Pydantic**: When adding new fields to Pydantic models (like  or ), the FastAPI/Supervisor backend *must* be restarted (backend: stopped
+backend: started). Otherwise, the running process will silently drop or ignore the new fields during registration/updates.
+- **Image Generation**: The social post template uses precise coordinate bounds for Pillow manipulation. If modifying the template rendering, rely heavily on bounding box measurements from  scripts.
+- **BizChat**: Relies exclusively on Meta-approved templates. It does not use standard media message endpoints.
+
+**documents and test reports created in this job**
+- 
+- 
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+1. User asked to consolidate dates if start/end date are the same (Completed).
+2. User wanted existing registered numbers to route to the login page automatically (Completed).
+3. User uploaded an image template and requested a feature for exhibitors to generate/download customized Social Posts (Completed).
+4. User noticed LinkedIn wasn't displaying (Agent diagnosed a missing backend restart and fixed it - Completed).
+5. User stated the button to setup/download the post wasn't prominent in the Exhibitor Dashboard (Agent fixed and is waiting for verification).
+6. User requested: Please use ask_human tool and confirm your plan now.
+7. Agent sent  tool request.
+8. (PENDING) Waiting for the user's response to the plan/verification request sent via .
+
+**Project Health Check:**
+Healthy. No broken or mocked flows.
+
+**3rd Party Integrations**
+- BizChat API (WhatsApp Messaging) — requires User-provided keys (Vendor UID & Token) supplied via Admin Settings.
+
+**Testing status**
+- Testing agent used after significant changes: YES
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: 
+- Known regressions: None
+
+**Credentials to test flow:**
+- Admin:  / 
+- (Reference  for specific test users generated)
+
+**What agent forgot to execute**
+None. 
+
+**Debugging checklist for current issue**
+No active bugs. If the user rejects the verification or complains about the newly added Social Post button layout:
+- Frontend files to check:  (Look at the top header action buttons).</analysis>

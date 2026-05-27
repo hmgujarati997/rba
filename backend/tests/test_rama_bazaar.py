@@ -6,7 +6,7 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://rama-showcase-live.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://bazaar-demo-env.preview.emergentagent.com").rstrip("/")
 # Load frontend env if BASE_URL not in environ
 if not os.environ.get("REACT_APP_BACKEND_URL"):
     try:

@@ -3,7 +3,7 @@ import TopBar from "../components/TopBar";
 import api, { formatError, BACKEND_URL, API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { LogOut, Download, Share2, MessageCircle } from "lucide-react";
+import { LogOut, Download, Share2, MessageCircle, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
@@ -52,9 +52,16 @@ export default function ExhibitorDashboard() {
           Status: {form.approved ? "Approved & live in the roster" : "Pending admin approval"}
         </div>
 
-        <div className="mt-8 flex gap-3">
+        <div className="mt-8 flex flex-wrap gap-3">
           <button data-testid="ex-preview" onClick={() => setPreview(!preview)} className="btn-outline-gold">{preview ? "Edit" : "Preview Card"}</button>
           <button data-testid="ex-save" onClick={save} disabled={saving} className="btn-gold">{saving ? "Saving…" : "Save Changes"}</button>
+          <button
+            data-testid="ex-jump-social"
+            onClick={() => document.querySelector('[data-testid="social-post-card"]')?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="btn-outline-gold"
+          >
+            <Sparkles size={14} /> Download Social Post
+          </button>
         </div>
 
         {preview ? (
