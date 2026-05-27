@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import TopBar from "../components/TopBar";
 import api, { formatError, BACKEND_URL, API } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -147,13 +147,15 @@ function SocialPostCard({ form, save }) {
           <div className="eyebrow" style={{ color: "#b2873d" }}>Share Your Participation</div>
           <h3 className="font-serif-display text-2xl mt-1">Download your social post</h3>
           <p className="mt-1 text-xs" style={{ color: "#7a7868" }}>
-            Auto-generated from your profile. Update your <b>Position</b>, <b>Photo</b> and details above, save, then refresh.
+            Update your <b>Position</b>, <b>Photo</b> and details above, frame your photo, then refresh.
           </p>
         </div>
         <button onClick={onSaveAndRefresh} className="btn-outline-gold" disabled={busy} data-testid="social-refresh">
           {busy ? "Updating…" : "Save & Refresh"}
         </button>
       </div>
+
+      <PhotoAdjuster form={form} token={token} onSaved={() => setCacheKey((k) => k + 1)} />
 
       <div className="mt-5 rounded-xl overflow-hidden border" style={{ borderColor: "rgba(178,135,61,0.30)", background: "#fbf8f0" }}>
         {previewUrl ? (
@@ -174,8 +176,117 @@ function SocialPostCard({ form, save }) {
         </button>
       </div>
       <p className="mt-3 text-xs text-center" style={{ color: "#7a7868" }}>
-        Tip — upload a portrait photo with your face centred for the cleanest result.
+        Tip — drag the photo to reposition. Use the slider to zoom into your face.
       </p>
+    </div>
+  );
+}
+
+function PhotoAdjuster({ form, token, onSaved }) {
+  const ref = useRef(null);
+  const dragging = useRef(false);
+  const [focusX, setFocusX] = useState(typeof form.photo_focus_x === "number" ? form.photo_focus_x : 0.5);
+  const [focusY, setFocusY] = useState(typeof form.photo_focus_y === "number" ? form.photo_focus_y : 0.35);
+  const [zoom, setZoom] = useState(typeof form.photo_zoom === "number" ? form.photo_zoom : 1.0);
+  const [saving, setSaving] = useState(false);
+
+  if (!form.profile_photo_url) {
+    return (
+      <div className="mt-4 p-4 rounded-xl border text-center text-xs" style={{ borderColor: "rgba(178,135,61,0.30)", background: "#fbf8f0", color: "#7a7868" }}>
+        Upload a <b>Profile Photo</b> above to enable photo framing for your social post.
+      </div>
+    );
+  }
+
+  const photoUrl = form.profile_photo_url.startsWith("http") ? form.profile_photo_url : `${BACKEND_URL}${form.profile_photo_url}`;
+
+  const onPointer = (e) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const cx = (e.touches?.[0]?.clientX ?? e.clientX) - rect.left;
+    const cy = (e.touches?.[0]?.clientY ?? e.clientY) - rect.top;
+    setFocusX(Math.max(0, Math.min(1, cx / rect.width)));
+    setFocusY(Math.max(0, Math.min(1, cy / rect.height)));
+  };
+
+  const start = (e) => { dragging.current = true; onPointer(e); };
+  const move = (e) => { if (dragging.current) onPointer(e); };
+  const end = () => { dragging.current = false; };
+
+  const persist = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${API}/exhibitors/me`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ photo_focus_x: focusX, photo_focus_y: focusY, photo_zoom: zoom }),
+      });
+      toast.success("Framing saved — refreshing post");
+      onSaved?.();
+    } catch { toast.error("Could not save framing"); }
+    finally { setSaving(false); }
+  };
+
+  // Mimic the silhouette frame: tall portrait, photo position controlled by background-position & background-size
+  const bgSize = `${zoom * 100}%`;
+  const bgPosX = `${focusX * 100}%`;
+  const bgPosY = `${focusY * 100}%`;
+
+  return (
+    <div className="mt-5 rounded-xl border p-4" style={{ borderColor: "rgba(178,135,61,0.30)", background: "#fbf8f0" }} data-testid="photo-adjuster">
+      <div className="flex items-center justify-between gap-2">
+        <div className="eyebrow" style={{ color: "#b2873d" }}>Frame Your Photo</div>
+        <button onClick={persist} disabled={saving} className="btn-outline-gold" data-testid="photo-frame-save">
+          {saving ? "Saving…" : "Apply Framing"}
+        </button>
+      </div>
+      <div className="mt-3 flex gap-4">
+        <div
+          ref={ref}
+          onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+          onTouchStart={start} onTouchMove={move} onTouchEnd={end}
+          className="relative select-none touch-none rounded-[40%] overflow-hidden border"
+          style={{
+            width: 110, height: 290, flexShrink: 0,
+            backgroundImage: `url("${photoUrl}")`,
+            backgroundSize: bgSize,
+            backgroundPosition: `${bgPosX} ${bgPosY}`,
+            backgroundRepeat: "no-repeat",
+            borderColor: "#d8bc84",
+            cursor: "grab",
+          }}
+          data-testid="photo-frame-preview"
+        >
+          <div className="absolute" style={{
+            left: `${focusX * 100}%`, top: `${focusY * 100}%`,
+            transform: "translate(-50%, -50%)",
+            width: 18, height: 18, borderRadius: 999,
+            border: "2px solid #fff", boxShadow: "0 0 0 1px rgba(0,0,0,0.4)",
+            pointerEvents: "none",
+          }} />
+        </div>
+        <div className="flex-1">
+          <div className="text-xs" style={{ color: "#3b3b46" }}>
+            Drag inside the oval to point at your face. Adjust zoom below.
+          </div>
+          <label className="block mt-4 text-xs uppercase tracking-luxe" style={{ color: "#7a7868" }}>Zoom</label>
+          <input
+            type="range" min="1" max="3" step="0.05" value={zoom}
+            onChange={(e) => setZoom(parseFloat(e.target.value))}
+            className="w-full accent-[#b2873d] mt-1"
+            data-testid="photo-frame-zoom"
+          />
+          <div className="text-xs mt-1" style={{ color: "#7a7868" }}>{zoom.toFixed(2)}×</div>
+          <button
+            onClick={() => { setFocusX(0.5); setFocusY(0.35); setZoom(1.0); }}
+            className="mt-3 text-xs underline underline-offset-4"
+            style={{ color: "#b2873d" }}
+            data-testid="photo-frame-reset"
+          >
+            Reset framing
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

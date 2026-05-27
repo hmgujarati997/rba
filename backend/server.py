@@ -40,6 +40,7 @@ app = FastAPI(title="Rama Bazaar 1.0 API")
 api = APIRouter(prefix="/api")
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads_api")
 
 logger = logging.getLogger("rama")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -153,6 +154,9 @@ class ExhibitorRegisterIn(BaseModel):
     logo_url: Optional[str] = ""
     banner_url: Optional[str] = ""
     profile_photo_url: Optional[str] = ""
+    photo_focus_x: Optional[float] = 0.5
+    photo_focus_y: Optional[float] = 0.35
+    photo_zoom: Optional[float] = 1.0
 
 class ExhibitorUpdateIn(BaseModel):
     member_name: Optional[str] = None
@@ -172,6 +176,9 @@ class ExhibitorUpdateIn(BaseModel):
     logo_url: Optional[str] = None
     banner_url: Optional[str] = None
     profile_photo_url: Optional[str] = None
+    photo_focus_x: Optional[float] = None
+    photo_focus_y: Optional[float] = None
+    photo_zoom: Optional[float] = None
 
 class PasswordResetIn(BaseModel):
     new_password: str
@@ -209,6 +216,7 @@ EXHIBITOR_PUBLIC_FIELDS = {
     "id", "mobile", "member_name", "business_name", "category", "position", "whatsapp", "email",
     "description", "products_services", "instagram", "facebook", "linkedin", "website",
     "address", "maps_link", "logo_url", "banner_url", "profile_photo_url",
+    "photo_focus_x", "photo_focus_y", "photo_zoom",
     "approved", "featured", "hidden", "created_at"
 }
 
@@ -264,7 +272,7 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File too large (max 8MB)")
     with open(path, "wb") as f:
         f.write(content)
-    return {"url": f"/uploads/{file_id}", "filename": file_id}
+    return {"url": f"/api/uploads/{file_id}", "filename": file_id}
 
 # ---------- Public Settings ----------
 async def get_settings() -> dict:
@@ -588,9 +596,21 @@ NAVY_INK = (27, 25, 75)
 GOLD_INK = (178, 135, 61)
 
 def _truetype(size: int, bold: bool = False, italic: bool = False):
-    """Resolve a serif font from the system, with bold/italic variants."""
+    """Resolve a luxury serif font with bold/italic variants.
+    Playfair Display ships with the app for the premium aesthetic."""
+    fonts_dir = ROOT_DIR / "assets" / "fonts"
     bold_italic = bold and italic
-    candidates = []
+    candidates: list[str] = []
+    # Bundled Playfair Display (preferred for luxury)
+    if bold_italic:
+        candidates += [str(fonts_dir / "PlayfairDisplay-Italic.ttf")]
+    elif bold:
+        candidates += [str(fonts_dir / "PlayfairDisplay-Bold.ttf")]
+    elif italic:
+        candidates += [str(fonts_dir / "PlayfairDisplay-Italic.ttf")]
+    else:
+        candidates += [str(fonts_dir / "PlayfairDisplay-Bold.ttf")]
+    # System fallbacks
     if bold_italic:
         candidates += [
             "/usr/share/fonts/truetype/liberation/LiberationSerif-BoldItalic.ttf",
@@ -620,6 +640,18 @@ def _truetype(size: int, bold: bool = False, italic: bool = False):
                 pass
     from PIL import ImageFont
     return ImageFont.load_default()
+
+
+def _cinzel(size: int):
+    """Cinzel — uppercase Roman serif for the category line."""
+    p = str(ROOT_DIR / "assets" / "fonts" / "Cinzel-Bold.ttf")
+    if os.path.exists(p):
+        try:
+            from PIL import ImageFont
+            return ImageFont.truetype(p, size)
+        except Exception:
+            pass
+    return _truetype(size, bold=True)
 
 def _fit_text(draw, text: str, max_w: int, max_h: int, start_size: int, min_size: int, bold=False, italic=False):
     """Auto-shrink the font size until text fits the given bounding box."""
@@ -657,15 +689,34 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
     # Place profile photo into the silhouette area
     photo_url = ex.get("profile_photo_url") or ""
     photo_path: Optional[Path] = None
-    if photo_url.startswith("/uploads/"):
+    if photo_url.startswith("/uploads/") or photo_url.startswith("/api/uploads/"):
         photo_path = UPLOAD_DIR / Path(photo_url).name
     if photo_path and photo_path.exists():
         try:
             photo = Image.open(photo_path).convert("RGB")
             x0, y0, x1, y1 = SILHOUETTE_BBOX
-            target = (x1 - x0, y1 - y0)
-            fitted = ImageOps.fit(photo, target, method=Image.LANCZOS, centering=(0.5, 0.35))
-            canvas.paste(fitted, (x0, y0))
+            target_w, target_h = x1 - x0, y1 - y0
+            # User-controlled framing (defaults: face slightly above center, no zoom)
+            fx = max(0.0, min(1.0, float(ex.get("photo_focus_x") or 0.5)))
+            fy = max(0.0, min(1.0, float(ex.get("photo_focus_y") or 0.35)))
+            zoom = max(1.0, min(3.0, float(ex.get("photo_zoom") or 1.0)))
+            # Aspect-preserving cover resize at zoom level (matches CSS background-size cover)
+            photo_ratio = photo.width / photo.height
+            target_ratio = target_w / target_h
+            if photo_ratio > target_ratio:
+                scaled_h = int(target_h * zoom)
+                scaled_w = int(scaled_h * photo_ratio)
+            else:
+                scaled_w = int(target_w * zoom)
+                scaled_h = int(scaled_w / photo_ratio)
+            scaled = photo.resize((scaled_w, scaled_h), Image.LANCZOS)
+            # background-position percent behavior: align (fx,fy) of image to (fx,fy) of container
+            ox = int(fx * (scaled_w - target_w))
+            oy = int(fy * (scaled_h - target_h))
+            ox = max(0, min(scaled_w - target_w, ox))
+            oy = max(0, min(scaled_h - target_h, oy))
+            crop = scaled.crop((ox, oy, ox + target_w, oy + target_h))
+            canvas.paste(crop, (x0, y0))
         except Exception as e:
             logger.warning(f"social-post photo paste failed: {e}")
 
@@ -683,20 +734,31 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
     company = (ex.get("business_name") or "").strip()
     category = (ex.get("category") or "").strip().upper()
 
-    # Vertical budgeting — heights per line
-    name_h_target = int(box_h * 0.38)
+    # Vertical budgeting — heights per line (bigger, premium feel)
+    name_h_target = int(box_h * 0.34)
     pos_h_target = int(box_h * 0.13)
-    co_h_target = int(box_h * 0.20)
+    co_h_target = int(box_h * 0.22)
     cat_h_target = int(box_h * 0.12)
 
-    # Fit each line. Auto-shrink if line too long.
-    name_font, name_w, name_h = _fit_text(draw, name, box_w - 40, name_h_target, start_size=170, min_size=70, bold=True)
-    pos_font, pos_w, pos_h = _fit_text(draw, position or " ", box_w - 60, pos_h_target, start_size=70, min_size=34, italic=True)
-    co_font, co_w, co_h = _fit_text(draw, company, box_w - 50, co_h_target, start_size=110, min_size=44, bold=True)
-    cat_font, cat_w, cat_h = _fit_text(draw, category, box_w - 60, cat_h_target, start_size=60, min_size=30, italic=True)
+    # Fit each line. Auto-shrink if line too long. Higher minimums => always legible.
+    name_font, name_w, name_h = _fit_text(draw, name, box_w - 80, name_h_target, start_size=210, min_size=120, bold=True)
+    pos_font, pos_w, pos_h = _fit_text(draw, position or " ", box_w - 100, pos_h_target, start_size=72, min_size=48, italic=True)
+    co_font, co_w, co_h = _fit_text(draw, company, box_w - 80, co_h_target, start_size=130, min_size=78, bold=True)
+    # Category uses Cinzel (uppercase Roman serif) for the small-caps tracked look
+    from PIL import ImageFont as _IF
+    cat_font_size = 70
+    while cat_font_size >= 40:
+        cf = _cinzel(cat_font_size)
+        cbb = draw.textbbox((0, 0), category, font=cf)
+        if (cbb[2] - cbb[0]) <= box_w - 120 and (cbb[3] - cbb[1]) <= cat_h_target:
+            break
+        cat_font_size -= 4
+    cat_font = _cinzel(cat_font_size)
+    cbb = draw.textbbox((0, 0), category, font=cat_font)
+    cat_w, cat_h = cbb[2] - cbb[0], cbb[3] - cbb[1]
 
     # Layout: NAME / position / company / category — centered horizontally, stacked vertically
-    gap = max(8, int(box_h * 0.03))
+    gap = max(12, int(box_h * 0.035))
     total = name_h + (gap + pos_h if position else 0) + gap + co_h + gap + cat_h
     cy = ty0 + max(0, (box_h - total) // 2)
 
@@ -710,7 +772,7 @@ async def exhibitor_social_post(user: dict = Depends(require_exhibitor)):
     # Company
     draw.text((tx0 + (box_w - co_w) // 2, cy), company, font=co_font, fill=NAVY_INK)
     cy += co_h + gap
-    # Category (small, gold tracked)
+    # Category (Cinzel, gold)
     draw.text((tx0 + (box_w - cat_w) // 2, cy), category, font=cat_font, fill=GOLD_INK)
 
     buf = io.BytesIO()

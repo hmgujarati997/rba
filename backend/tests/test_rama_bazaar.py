@@ -413,26 +413,140 @@ class TestAdminMisc:
 
 # --- File Upload ---
 class TestUpload:
-    def test_upload_png(self):
-        # Minimal valid PNG (1x1)
-        png = bytes.fromhex(
-            "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C489"
-            "0000000A49444154789C6300010000000500010D0A2DB40000000049454E44AE426082"
-        )
-        files = {"file": ("test.png", png, "image/png")}
+    # Minimal valid PNG (1x1)
+    _PNG = bytes.fromhex(
+        "89504E470D0A1A0A0000000D49484452000000010000000108060000001F15C489"
+        "0000000A49444154789C6300010000000500010D0A2DB40000000049454E44AE426082"
+    )
+
+    def test_upload_png_returns_api_uploads_path(self):
+        files = {"file": ("test.png", self._PNG, "image/png")}
         r = requests.post(f"{BASE_URL}/api/upload", files=files)
         assert r.status_code == 200
         url = r.json()["url"]
-        assert url.startswith("/uploads/")
-        # Verify accessible
+        # New requirement: URL must start with /api/uploads/ (NOT /uploads/)
+        assert url.startswith("/api/uploads/"), f"upload url must start with /api/uploads/, got {url}"
+        # Verify accessible via /api/uploads/<file>
         full = f"{BASE_URL}{url}"
         r2 = requests.get(full)
         assert r2.status_code == 200
+        assert r2.headers.get("content-type", "").startswith("image/")
+
+    def test_legacy_uploads_path_still_works(self):
+        # Upload then test backward compat /uploads/<file> path
+        files = {"file": ("test2.png", self._PNG, "image/png")}
+        r = requests.post(f"{BASE_URL}/api/upload", files=files)
+        assert r.status_code == 200
+        new_url = r.json()["url"]
+        filename = new_url.rsplit("/", 1)[-1]
+        legacy = f"{BASE_URL}/uploads/{filename}"
+        r2 = requests.get(legacy)
+        assert r2.status_code == 200, f"legacy /uploads/ path broken: {r2.status_code}"
+        assert r2.headers.get("content-type", "").startswith("image/")
 
     def test_upload_unsupported(self):
         files = {"file": ("bad.txt", b"hello", "text/plain")}
         r = requests.post(f"{BASE_URL}/api/upload", files=files)
         assert r.status_code == 400
+
+
+# --- Social Post / Photo Framing tests (seeded exhibitor 9876543210) ---
+SEEDED_EX_MOBILE = "9876543210"
+SEEDED_EX_PASSWORD = "Exhibit@123"
+
+
+@pytest.fixture(scope="session")
+def seeded_ex_token(s):
+    r = s.post(f"{BASE_URL}/api/auth/login",
+               json={"mobile": SEEDED_EX_MOBILE, "password": SEEDED_EX_PASSWORD})
+    if r.status_code != 200:
+        pytest.skip(f"Seeded exhibitor login failed: {r.status_code} {r.text}")
+    return r.json()["token"]
+
+
+@pytest.fixture(scope="session")
+def seeded_ex_headers(seeded_ex_token):
+    return {"Authorization": f"Bearer {seeded_ex_token}", "Content-Type": "application/json"}
+
+
+class TestSocialPost:
+    def test_seeded_exhibitor_login(self, s):
+        r = s.post(f"{BASE_URL}/api/auth/login",
+                   json={"mobile": SEEDED_EX_MOBILE, "password": SEEDED_EX_PASSWORD})
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["role"] == "exhibitor"
+        assert isinstance(d["token"], str) and len(d["token"]) > 20
+
+    def test_auth_me_has_photo_framing_fields(self, s, seeded_ex_headers):
+        r = s.get(f"{BASE_URL}/api/auth/me", headers=seeded_ex_headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["role"] == "exhibitor"
+        u = body["user"]
+        # New fields should be present (defaults: 0.5, 0.35, 1.0)
+        for k in ("photo_focus_x", "photo_focus_y", "photo_zoom"):
+            assert k in u, f"missing field {k} in /auth/me response: {list(u.keys())}"
+        # Sanity check ranges
+        assert 0.0 <= float(u["photo_focus_x"]) <= 1.0
+        assert 0.0 <= float(u["photo_focus_y"]) <= 1.0
+        assert 1.0 <= float(u["photo_zoom"]) <= 3.0
+        # Profile photo URL should be /api/uploads/...
+        if u.get("profile_photo_url"):
+            assert u["profile_photo_url"].startswith("/api/uploads/") or u["profile_photo_url"].startswith("/uploads/")
+
+    def test_put_exhibitors_me_persists_framing(self, s, seeded_ex_headers):
+        # Set distinct values
+        payload = {"photo_focus_x": 0.25, "photo_focus_y": 0.6, "photo_zoom": 1.7}
+        r = s.put(f"{BASE_URL}/api/exhibitors/me", headers=seeded_ex_headers, json=payload)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert abs(float(body["photo_focus_x"]) - 0.25) < 1e-6
+        assert abs(float(body["photo_focus_y"]) - 0.6) < 1e-6
+        assert abs(float(body["photo_zoom"]) - 1.7) < 1e-6
+        # Verify via /auth/me
+        me = s.get(f"{BASE_URL}/api/auth/me", headers=seeded_ex_headers).json()["user"]
+        assert abs(float(me["photo_focus_x"]) - 0.25) < 1e-6
+        assert abs(float(me["photo_focus_y"]) - 0.6) < 1e-6
+        assert abs(float(me["photo_zoom"]) - 1.7) < 1e-6
+
+    def test_social_post_png_3000x3000(self, s, seeded_ex_headers):
+        r = s.get(f"{BASE_URL}/api/exhibitors/me/social-post.png", headers=seeded_ex_headers)
+        assert r.status_code == 200, r.text
+        assert r.headers["content-type"].startswith("image/png")
+        size = len(r.content)
+        print(f"social-post.png size: {size} bytes")
+        assert size > 50_000, f"social-post.png too small: {size} bytes"
+        assert r.content[:4] == b"\x89PNG"
+        # Validate dimensions
+        from PIL import Image
+        img = Image.open(io.BytesIO(r.content))
+        assert img.size == (3000, 3000), f"expected 3000x3000, got {img.size}"
+
+    def test_framing_changes_produce_different_png(self, s, seeded_ex_headers):
+        import hashlib
+        # Set framing A
+        s.put(f"{BASE_URL}/api/exhibitors/me", headers=seeded_ex_headers,
+              json={"photo_focus_x": 0.1, "photo_focus_y": 0.1, "photo_zoom": 1.0})
+        a = s.get(f"{BASE_URL}/api/exhibitors/me/social-post.png", headers=seeded_ex_headers).content
+        # Set framing B (very different)
+        s.put(f"{BASE_URL}/api/exhibitors/me", headers=seeded_ex_headers,
+              json={"photo_focus_x": 0.9, "photo_focus_y": 0.9, "photo_zoom": 2.5})
+        b = s.get(f"{BASE_URL}/api/exhibitors/me/social-post.png", headers=seeded_ex_headers).content
+        ha = hashlib.sha256(a).hexdigest()
+        hb = hashlib.sha256(b).hexdigest()
+        print(f"hash A: {ha[:16]}  hash B: {hb[:16]}  sizes: {len(a)} vs {len(b)}")
+        assert ha != hb, "social-post.png is identical for different framing — framing not applied"
+
+    def test_profile_photo_url_resolvable(self, s, seeded_ex_headers):
+        me = s.get(f"{BASE_URL}/api/auth/me", headers=seeded_ex_headers).json()["user"]
+        url = me.get("profile_photo_url")
+        if not url:
+            pytest.skip("no profile_photo_url on seeded exhibitor")
+        # Try /api/uploads/ form
+        r = s.get(f"{BASE_URL}{url}")
+        assert r.status_code == 200, f"profile photo not accessible at {url}: {r.status_code}"
+        assert r.headers.get("content-type", "").startswith("image/")
 
 
 # --- Cleanup ---
