@@ -12,6 +12,7 @@ const TABS = [
   ["overview", "Overview"],
   ["visitors", "Visitors"],
   ["exhibitors", "Exhibitors"],
+  ["committee", "Committee"],
   ["members", "Members"],
   ["sponsors", "Sponsors"],
   ["settings", "Settings"],
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
             <Route path="overview" element={<Overview />} />
             <Route path="visitors" element={<Visitors />} />
             <Route path="exhibitors" element={<Exhibitors />} />
+            <Route path="committee" element={<Committee />} />
             <Route path="members" element={<Members />} />
             <Route path="sponsors" element={<Sponsors />} />
             <Route path="settings" element={<Settings />} />
@@ -451,3 +453,158 @@ function Settings() {
     </div>
   );
 }
+
+function Committee() {
+  const [items, setItems] = useState([]);
+  const [busyId, setBusyId] = useState(null);
+  const GROUPS = [
+    ["rama_bazaar", "Rama Bazaar Committee"],
+    ["management", "Management Committee"],
+    ["supported_by", "Supported By"],
+  ];
+
+  const load = () => api.get("/admin/committee").then((r) => setItems(r.data || []));
+  useEffect(() => { load(); }, []);
+
+  const upload = async (file) => {
+    const fd = new FormData(); fd.append("file", file);
+    const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+    return data.url;
+  };
+
+  const updateField = async (id, patch) => {
+    try {
+      setBusyId(id);
+      await api.put(`/admin/committee/${id}`, patch);
+      await load();
+      toast.success("Updated");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail) || "Update failed"); }
+    finally { setBusyId(null); }
+  };
+
+  const onPhoto = async (id, e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { setBusyId(id); const url = await upload(f); await updateField(id, { photo_url: url }); }
+    catch { toast.error("Upload failed"); setBusyId(null); }
+  };
+
+  const onLogo = async (id, e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { setBusyId(id); const url = await upload(f); await updateField(id, { logo_url: url }); }
+    catch { toast.error("Upload failed"); setBusyId(null); }
+  };
+
+  const onRoleBlur = (m, value) => {
+    if (value !== m.role) updateField(m.id, { role: value });
+  };
+
+  const onNameBlur = (m, value) => {
+    if (value !== m.name && value.trim()) updateField(m.id, { name: value.trim() });
+  };
+
+  const toggleHide = (m) => updateField(m.id, { hidden: !m.hidden });
+
+  const del = async (id) => {
+    if (!window.confirm("Delete this committee member?")) return;
+    await api.delete(`/admin/committee/${id}`);
+    load();
+  };
+
+  const addBlank = async (group) => {
+    try {
+      await api.post("/admin/committee", { group, name: "New Member", role: "", order: 99 });
+      toast.success("Added");
+      load();
+    } catch (err) { toast.error(formatError(err.response?.data?.detail) || "Could not add"); }
+  };
+
+  return (
+    <div data-testid="admin-committee">
+      <div className="eyebrow">Committee</div>
+      <h2 className="font-serif-display text-3xl mt-2">Committee Members</h2>
+      <p className="mt-2 text-sm" style={{ color: "#7a7868" }}>
+        Upload member photos and company logos. Edits save instantly on field blur.
+      </p>
+
+      {GROUPS.map(([gKey, gLabel]) => {
+        const group = items.filter((i) => i.group === gKey);
+        return (
+          <div key={gKey} className="mt-10">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif-display text-xl">{gLabel} <span className="text-xs ml-2" style={{ color: "#7a7868" }}>({group.length})</span></h3>
+              <button onClick={() => addBlank(gKey)} className="btn-outline-gold" data-testid={`committee-add-${gKey}`}>+ Add Member</button>
+            </div>
+            <div className="mt-4 grid sm:grid-cols-2 gap-4">
+              {group.map((m) => (
+                <div key={m.id} className="card-luxe p-4" data-testid={`committee-row-${m.id}`}>
+                  <div className="flex gap-4">
+                    {/* Photo */}
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-20 h-20 rounded-full overflow-hidden border-2 bg-[#efeae0]"
+                           style={{ borderColor: "#d8bc84" }}>
+                        {m.photo_url ? (
+                          <img src={absUrl(m.photo_url)} alt={m.name} className="w-full h-full object-cover"/>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: "#7a7868" }}>
+                            No photo
+                          </div>
+                        )}
+                      </div>
+                      <label className="text-xs underline cursor-pointer" style={{ color: "#b2873d" }}>
+                        {busyId === m.id ? "…" : "Photo"}
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => onPhoto(m.id, e)} data-testid={`committee-photo-${m.id}`}/>
+                      </label>
+                    </div>
+
+                    {/* Fields */}
+                    <div className="flex-1 min-w-0">
+                      <label className="label-luxe">Name</label>
+                      <input className="input-luxe" defaultValue={m.name}
+                             onBlur={(e) => onNameBlur(m, e.target.value)}
+                             data-testid={`committee-name-${m.id}`}/>
+                      <label className="label-luxe mt-2">Role</label>
+                      <input className="input-luxe" defaultValue={m.role}
+                             onBlur={(e) => onRoleBlur(m, e.target.value)}
+                             data-testid={`committee-role-${m.id}`}/>
+                      <label className="label-luxe mt-2">Order</label>
+                      <input type="number" className="input-luxe" defaultValue={m.order}
+                             onBlur={(e) => {
+                               const n = parseInt(e.target.value || "0", 10);
+                               if (n !== m.order) updateField(m.id, { order: n });
+                             }}/>
+                    </div>
+                  </div>
+
+                  {/* Company Logo */}
+                  <div className="mt-4 pt-4 border-t flex items-center gap-3" style={{ borderColor: "rgba(178,135,61,0.2)" }}>
+                    <div className="w-16 h-12 flex items-center justify-center bg-[#fbf8f0] border rounded"
+                         style={{ borderColor: "rgba(178,135,61,0.3)" }}>
+                      {m.logo_url ? (
+                        <img src={absUrl(m.logo_url)} alt="Logo" className="max-w-full max-h-full object-contain"/>
+                      ) : (
+                        <span className="text-[10px]" style={{ color: "#7a7868" }}>No logo</span>
+                      )}
+                    </div>
+                    <label className="text-xs underline cursor-pointer" style={{ color: "#b2873d" }}>
+                      Upload company logo
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => onLogo(m.id, e)} data-testid={`committee-logo-${m.id}`}/>
+                    </label>
+                    <div className="ml-auto flex items-center gap-2">
+                      <button onClick={() => toggleHide(m)} className="text-xs uppercase tracking-luxe" style={{ color: m.hidden ? "#b2873d" : "#7a7868" }}>
+                        {m.hidden ? "Hidden" : "Visible"}
+                      </button>
+                      <button onClick={() => del(m.id)} className="text-xs underline" style={{ color: "#b2873d" }} data-testid={`committee-delete-${m.id}`}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+

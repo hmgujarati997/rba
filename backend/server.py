@@ -1079,6 +1079,110 @@ async def send_whatsapp(qr_id: str, request: Request):
     )
     return {"sent": True, "result": result}
 
+# ---------- Committee Members ----------
+COMMITTEE_GROUPS = ("rama_bazaar", "management", "supported_by")
+
+class CommitteeMemberIn(BaseModel):
+    group: str
+    name: str
+    role: str = ""
+    photo_url: Optional[str] = ""
+    logo_url: Optional[str] = ""
+    order: Optional[int] = 100
+    hidden: Optional[bool] = False
+
+class CommitteeMemberPatch(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    photo_url: Optional[str] = None
+    logo_url: Optional[str] = None
+    order: Optional[int] = None
+    group: Optional[str] = None
+    hidden: Optional[bool] = None
+
+def _committee_public(doc: dict) -> dict:
+    return {k: doc.get(k) for k in ("id", "group", "name", "role", "photo_url", "logo_url", "order")}
+
+@api.get("/committee")
+async def list_committee_public():
+    """Public — grouped committee members for the landing page."""
+    items = await db.committee.find({"hidden": {"$ne": True}}, {"_id": 0}).sort([("order", 1), ("name", 1)]).to_list(length=200)
+    out = {g: [] for g in COMMITTEE_GROUPS}
+    for it in items:
+        g = it.get("group") or "management"
+        if g in out:
+            out[g].append(_committee_public(it))
+    return out
+
+@api.get("/admin/committee")
+async def list_committee_admin(_: dict = Depends(require_admin)):
+    items = await db.committee.find({}, {"_id": 0}).sort([("group", 1), ("order", 1), ("name", 1)]).to_list(length=500)
+    return items
+
+@api.post("/admin/committee")
+async def create_committee_member(data: CommitteeMemberIn, _: dict = Depends(require_admin)):
+    if data.group not in COMMITTEE_GROUPS:
+        raise HTTPException(status_code=400, detail="Invalid group")
+    doc = data.model_dump()
+    doc["id"] = uuid.uuid4().hex
+    doc["created_at"] = now_iso()
+    await db.committee.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api.put("/admin/committee/{member_id}")
+async def update_committee_member(member_id: str, data: CommitteeMemberPatch, _: dict = Depends(require_admin)):
+    payload = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "group" in payload and payload["group"] not in COMMITTEE_GROUPS:
+        raise HTTPException(status_code=400, detail="Invalid group")
+    if not payload:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    res = await db.committee.update_one({"id": member_id}, {"$set": payload})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return {"ok": True}
+
+@api.delete("/admin/committee/{member_id}")
+async def delete_committee_member(member_id: str, _: dict = Depends(require_admin)):
+    res = await db.committee.delete_one({"id": member_id})
+    return {"deleted": res.deleted_count}
+
+
+async def seed_committee():
+    """Idempotent seed of the Rama Bazaar 1.0 committee. New rows only — never
+    overwrites edits made by admin (photos, role updates, etc.)."""
+    seed = [
+        # Rama Bazaar Committee
+        {"group": "rama_bazaar", "order": 1, "name": "Arpit Jhaveri", "role": "Chair Person (Vice President)"},
+        {"group": "rama_bazaar", "order": 2, "name": "Sneha Pankhaniya", "role": "Co Chair Person (LVH)"},
+        # Management Committee
+        {"group": "management", "order": 1, "name": "Karishma Ghanshani", "role": "Will be entered soon"},
+        {"group": "management", "order": 2, "name": "Nishith Shah", "role": "Gifting Partner"},
+        {"group": "management", "order": 3, "name": "Harsh Gujarati", "role": "Technology Partner"},
+        {"group": "management", "order": 4, "name": "Namrata Revachandani", "role": "Social Media & Marketing Partner"},
+        {"group": "management", "order": 5, "name": "Samir Gandhi", "role": "T-Shirt Partner"},
+        {"group": "management", "order": 6, "name": "Suresh Prajapati", "role": "Gifting Partner"},
+        {"group": "management", "order": 7, "name": "Manish Parekh", "role": "Will be entered soon"},
+        {"group": "management", "order": 8, "name": "Neha Chawla", "role": "Will be entered soon"},
+        {"group": "management", "order": 9, "name": "Satish Dighe", "role": "Will be entered soon"},
+        # Supported By
+        {"group": "supported_by", "order": 1, "name": "Khushboo Turkhiya", "role": "President"},
+        {"group": "supported_by", "order": 2, "name": "Ashok Chauhan", "role": "Sr."},
+    ]
+    for s in seed:
+        existing = await db.committee.find_one({"name": s["name"], "group": s["group"]})
+        if existing:
+            continue
+        await db.committee.insert_one({
+            "id": uuid.uuid4().hex,
+            "photo_url": "",
+            "logo_url": "",
+            "hidden": False,
+            "created_at": now_iso(),
+            **s,
+        })
+
+
 # ---------- Startup ----------
 @app.on_event("startup")
 async def startup():
@@ -1104,6 +1208,7 @@ async def startup():
         await db.admins.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
         logger.info(f"Updated admin password: {admin_email}")
     await get_settings()  # ensure default settings exist
+    await seed_committee()
 
     # One-time migration: rewrite legacy /uploads/* URLs to /api/uploads/* so that
     # the frontend (which routes only /api/* through the ingress) can fetch them.

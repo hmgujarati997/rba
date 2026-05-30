@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { MapPin, Calendar, ChevronDown, MessageCircle } from "lucide-react";
 import Logo from "../components/Logo";
 import PopupBanner from "../components/PopupBanner";
+import CommitteeSection from "../components/CommitteeSection";
 import api, { BACKEND_URL } from "../lib/api";
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
@@ -237,6 +238,11 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      <div className="divider-thin" />
+
+      {/* COMMITTEE MEMBERS */}
+      <CommitteeSection />
 
       <div className="divider-thin" />
 
