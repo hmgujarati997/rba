@@ -135,7 +135,10 @@ function SocialPostCard({ form, save }) {
         await navigator.share({ files: [file], title: "I am participating in Rama Bazaar 1.0" });
         return;
       }
-    } catch {}
+    } catch (err) {
+      // Web Share unavailable / user cancelled — fall through to WhatsApp web link
+      console.debug("Web Share fallback:", err);
+    }
     const text = encodeURIComponent("I am participating in Rama Bazaar 1.0 — join us!");
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };

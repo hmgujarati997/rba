@@ -46,7 +46,7 @@ export default function Attendance() {
     })();
     return () => {
       mounted = false;
-      try { html5Ref.current?.stop().then(() => html5Ref.current?.clear()); } catch {}
+      try { html5Ref.current?.stop().then(() => html5Ref.current?.clear()); } catch (err) { console.debug("Scanner teardown:", err); }
     };
   }, [role]);
 

@@ -230,7 +230,7 @@ export default function Landing() {
         </p>
         <div className="mt-8 space-y-6">
           {WHY.map((w, i) => (
-            <div key={i} className="card-luxe p-6">
+            <div key={w.t} className="card-luxe p-6">
               <div className="eyebrow" style={{ color: "#b2873d" }}>{String(i + 1).padStart(2, "0")}</div>
               <h3 className="font-serif-display text-2xl mt-2">{w.t}</h3>
               <p className="mt-2 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{w.d}</p>
@@ -297,7 +297,7 @@ export default function Landing() {
         <div className="eyebrow">FAQ</div>
         <h2 className="font-serif-display text-3xl mt-3">Questions, gracefully answered.</h2>
         <div className="mt-8 space-y-2">
-          {FAQS.map((f, i) => <Faq key={i} q={f.q} a={f.a} />)}
+          {FAQS.map((f) => <Faq key={f.q} q={f.q} a={f.a} />)}
         </div>
       </section>
 

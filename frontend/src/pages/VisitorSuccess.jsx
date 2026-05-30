@@ -32,7 +32,10 @@ export default function VisitorSuccess() {
         }
       }
       await navigator.share?.({ title: "Rama Bazaar 1.0", url: window.location.href });
-    } catch {}
+    } catch (err) {
+      // User cancelled share or Web Share unsupported — non-fatal
+      console.debug("Visitor pass share:", err);
+    }
   };
 
   const sendWa = async () => {
