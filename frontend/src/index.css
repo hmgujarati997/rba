@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lock the app to light theme regardless of phone/OS dark mode.
+   - color-scheme: light  -> opts out of system dark scheme + Chrome "force dark"
+   - html attribute reinforces it for browsers that key off the doc element       */
+:root { color-scheme: light; }
+html { color-scheme: light; }
+
 @layer base {
   :root {
     --background: 44 30% 97%;
@@ -24,6 +30,35 @@
     --input: 36 28% 86%;
     --ring: 36 49% 47%;
     --radius: 0.75rem;
+  }
+
+  /* Re-assert the same light palette under dark preference so any
+     user-agent dark-stylesheet (Samsung Internet, Firefox night mode, etc.)
+     can't repaint our brand colors. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 44 30% 97%;
+      --foreground: 240 10% 14%;
+      --card: 0 0% 100%;
+      --card-foreground: 240 10% 14%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 240 10% 14%;
+      --primary: 36 49% 47%;
+      --primary-foreground: 44 30% 97%;
+      --secondary: 40 26% 92%;
+      --secondary-foreground: 240 10% 14%;
+      --muted: 40 22% 94%;
+      --muted-foreground: 33 9% 39%;
+      --accent: 36 49% 47%;
+      --accent-foreground: 44 30% 97%;
+      --destructive: 0 60% 40%;
+      --destructive-foreground: 44 30% 97%;
+      --border: 36 35% 80%;
+      --input: 36 28% 86%;
+      --ring: 36 49% 47%;
+    }
+    html, body { background-color: #f8f7f4 !important; color: #1f1f27 !important; }
+    img, picture, video { filter: none !important; }
   }
 }
 
