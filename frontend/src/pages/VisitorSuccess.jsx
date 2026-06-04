@@ -41,6 +41,7 @@ export default function VisitorSuccess() {
   const [info, setInfo] = useState(null);
   const [settings, setSettings] = useState({});
   const qrUrl = `${API}/visitors/qr/${qrId}.png`;
+  const qrPreviewUrl = `${qrUrl}?plain=1`;
 
   useEffect(() => {
     api.get(`/visitors/by-qr/${qrId}`).then((r) => setInfo(r.data?.visitor || null)).catch(() => {});
@@ -155,7 +156,7 @@ export default function VisitorSuccess() {
               <div className="rounded-lg p-3" style={{ background: "#fbf8f0", border: "1px solid rgba(178,135,61,0.25)" }}>
                 <img
                   data-testid="visitor-qr-img"
-                  src={qrUrl}
+                  src={qrPreviewUrl}
                   alt="Your QR pass"
                   className="w-56 h-56 sm:w-60 sm:h-60 object-contain"
                 />
@@ -173,6 +174,16 @@ export default function VisitorSuccess() {
                   )}
                 </div>
               )}
+
+              {/* Tech Partner credit inside the pass */}
+              <div className="mt-5 pt-4 w-full flex flex-col items-center"
+                   style={{ borderTop: "1px solid rgba(178,135,61,0.20)" }}>
+                <div className="text-[9px] uppercase tracking-luxe" style={{ color: "#7a7868" }}>
+                  Technology Partner
+                </div>
+                <img src="/partners/rxt.png" alt="Rapid Express Technologies"
+                     className="mt-1.5 h-7 w-auto opacity-90" loading="lazy"/>
+              </div>
             </div>
           </div>
         </div>

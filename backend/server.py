@@ -376,7 +376,7 @@ async def visitor_by_qr(qr_id: str):
 
 
 @api.get("/visitors/qr/{qr_id}.png")
-async def visitor_qr_image(qr_id: str):
+async def visitor_qr_image(qr_id: str, plain: int = 0):
     v = await db.visitors.find_one({"qr_id": qr_id}, {"_id": 0})
     if not v:
         raise HTTPException(status_code=404, detail="QR not found")
@@ -385,6 +385,17 @@ async def visitor_qr_image(qr_id: str):
     qr.add_data(payload)
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="#1f1f27", back_color="#ffffff").convert("RGB")
+
+    # Plain mode — return just the QR (used by the on-page preview card).
+    if plain:
+        from PIL import Image as _Image
+        qr_img = qr_img.resize((800, 800), _Image.LANCZOS)
+        buf = io.BytesIO()
+        qr_img.save(buf, format="PNG", optimize=False, compress_level=3)
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="image/png", headers={
+            "Cache-Control": "public, max-age=86400",
+        })
 
     # Compose branded poster: 1080x1620 (3:4.5) — looks great in WhatsApp preview
     from PIL import Image, ImageDraw
