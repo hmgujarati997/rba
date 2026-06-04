@@ -114,6 +114,9 @@ class VisitorIn(BaseModel):
     city: Optional[str] = ""
     referred_by: Optional[str] = ""
     email: Optional[str] = ""
+    is_lvb_member: Optional[bool] = False
+    lvb_chapter: Optional[str] = ""
+    photo_url: Optional[str] = ""
 
 class VisitorOut(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -125,6 +128,9 @@ class VisitorOut(BaseModel):
     city: str = ""
     referred_by: str = ""
     email: str = ""
+    is_lvb_member: bool = False
+    lvb_chapter: str = ""
+    photo_url: str = ""
     qr_id: str
     attended: bool = False
     attended_at: Optional[str] = None
@@ -342,6 +348,9 @@ async def visitor_register(data: VisitorIn):
         "city": (data.city or "").strip(),
         "referred_by": (data.referred_by or "").strip(),
         "email": (data.email or "").strip(),
+        "is_lvb_member": bool(data.is_lvb_member),
+        "lvb_chapter": (data.lvb_chapter or "").strip() if data.is_lvb_member else "",
+        "photo_url": (data.photo_url or "").strip(),
         "qr_id": qr_id,
         "attended": False,
         "attended_at": None,
@@ -912,9 +921,9 @@ async def admin_export_visitors(_: dict = Depends(require_admin)):
     items = await db.visitors.find({}, {"_id": 0}).sort("created_at", -1).to_list(50000)
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["Full Name", "Mobile", "Business", "Industry", "City", "Referred By", "Email", "Attended", "Attended At", "Created At"])
+    writer.writerow(["Full Name", "Mobile", "Business", "Industry", "City", "Referred By", "Email", "LVB Member", "LVB Chapter", "Photo URL", "Attended", "Attended At", "Created At"])
     for v in items:
-        writer.writerow([v.get("full_name"), v.get("mobile"), v.get("business_name"), v.get("industry"), v.get("city"), v.get("referred_by"), v.get("email"), v.get("attended"), v.get("attended_at"), v.get("created_at")])
+        writer.writerow([v.get("full_name"), v.get("mobile"), v.get("business_name"), v.get("industry"), v.get("city"), v.get("referred_by"), v.get("email"), "Yes" if v.get("is_lvb_member") else "No", v.get("lvb_chapter", ""), v.get("photo_url", ""), v.get("attended"), v.get("attended_at"), v.get("created_at")])
     return StreamingResponse(io.BytesIO(buf.getvalue().encode("utf-8")), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="visitors.csv"'})
 
 @api.delete("/admin/visitors/{vid}")
