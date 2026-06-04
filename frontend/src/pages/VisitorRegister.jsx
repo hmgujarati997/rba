@@ -8,11 +8,11 @@ import { toast } from "sonner";
 const FIELDS = [
   ["full_name", "Full Name", "John Doe", true],
   ["mobile", "Mobile Number (10 digits)", "9876543210", true],
-  ["business_name", "Business Name", "Your Business", false],
-  ["industry", "Industry / Category", "Retail, F&B, Tech…", false],
-  ["city", "City", "Mumbai", false],
-  ["referred_by", "Referred By", "Member Name", false],
-  ["email", "Email (optional)", "you@example.com", false],
+  ["business_name", "Business Name", "Your Business", true],
+  ["industry", "Industry / Category", "Retail, F&B, Tech…", true],
+  ["city", "City", "Mumbai", true],
+  ["referred_by", "Referred By", "Member Name", true],
+  ["email", "Email", "you@example.com", true],
 ];
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
@@ -31,7 +31,11 @@ export default function VisitorRegister() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.full_name || !form.mobile) return toast.error("Name and mobile are required");
+    for (const [k, label] of FIELDS) {
+      if (!String(form[k] || "").trim()) {
+        return toast.error(`${label} is required`);
+      }
+    }
     if (form.is_lvb_member && !form.lvb_chapter.trim()) {
       return toast.error("Please enter your LVB chapter name");
     }
@@ -129,7 +133,7 @@ export default function VisitorRegister() {
                 <input
                   data-testid="visitor-lvb-chapter"
                   className="input-luxe"
-                  placeholder="e.g. Surat, Mumbai, Ahmedabad…"
+                  placeholder="Rama, Growth, Profit…"
                   value={form.lvb_chapter}
                   onChange={(e) => setForm({ ...form, lvb_chapter: e.target.value })}
                   required
