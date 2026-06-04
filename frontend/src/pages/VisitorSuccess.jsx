@@ -123,7 +123,13 @@ export default function VisitorSuccess() {
 
             <div className="px-5 pt-5 pb-4 text-center">
               <div className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Visitor Pass</div>
-              <div className="font-serif-display text-xl mt-1" style={{ color: "#1f1f27" }}>
+              <img
+                src="/rb-emblem.png"
+                alt="Rama Bazaar"
+                className="mx-auto mt-3 h-14 w-auto"
+                loading="lazy"
+              />
+              <div className="font-serif-display text-xl mt-2" style={{ color: "#1f1f27" }}>
                 Rama Bazaar <span style={{ color: "#b2873d" }}>1.0</span>
               </div>
               {info?.full_name && (
