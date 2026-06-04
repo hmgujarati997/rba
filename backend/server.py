@@ -397,9 +397,9 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             "Cache-Control": "public, max-age=86400",
         })
 
-    # Compose branded poster: 1080x1620 (3:4.5) — looks great in WhatsApp preview
+    # Compose branded poster: 1080×1820 (3:5 portrait) — clean stacked layout, no overlaps
     from PIL import Image, ImageDraw
-    W, H = 1080, 1620
+    W, H = 1080, 1820
     bg = Image.new("RGB", (W, H), "#f8f7f4")
     draw = ImageDraw.Draw(bg)
     # Outer gold frame
@@ -421,67 +421,73 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             if on_dark:
                 bg.paste(im, (x, y), im)
             else:
-                # JPGs / opaque PNGs already blend fine on cream
                 bg.paste(im, (x, y), im if im.mode == "RGBA" else None)
         except Exception as e:
             logger.warning(f"poster logo paste failed for {path.name}: {e}")
 
-    # ---- 1) Title Sponsor band (Coco Salons) — top ----
-    band_x0, band_y0, band_x1, band_y1 = 80, 90, W - 80, 280
+    # Font set
+    eyebrow_sm_f   = _truetype(18, bold=True)
+    eyebrow_band_f = _truetype(22, bold=True)
+    eyebrow_f      = _truetype(26, bold=True)
+    sub_f          = _truetype(44, bold=True)
+    body_f         = _truetype(36, bold=False)
+    small_f        = _truetype(24, bold=False)
+    pass_name_f    = _truetype(56, bold=True)
+
+    # ===== 1) Title Sponsor band (top) =====
+    band_x0, band_y0, band_x1, band_y1 = 80, 90, W - 80, 240
     draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], fill="#1B194B")
     draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], outline="#c19b30", width=2)
-    eyebrow_navy_f = _truetype(20, bold=True)
-    draw.text((W // 2, band_y0 + 16), "TITLE SPONSOR",
-              font=eyebrow_navy_f, fill="#c19b30", anchor="mt")
+    draw.text((W // 2, band_y0 + 14), "TITLE SPONSOR",
+              font=eyebrow_band_f, fill="#c19b30", anchor="mt")
     _paste_logo(brand / "coco-salons.jpg",
-                max_w=band_x1 - band_x0 - 80, max_h=120,
-                cx=W // 2, cy=(band_y0 + band_y1) // 2 + 16, on_dark=True)
+                max_w=band_x1 - band_x0 - 100, max_h=86,
+                cx=W // 2, cy=band_y0 + 100, on_dark=True)
 
-    # ---- 2) Rama Bazaar emblem + title ----
-    _paste_logo(brand / "rb-emblem.png", max_w=320, max_h=320, cx=W // 2, cy=470)
+    # ===== 2) Rama Bazaar emblem =====
+    _paste_logo(brand / "rb-emblem.png", max_w=240, max_h=240, cx=W // 2, cy=380)
 
-    eyebrow_f = _truetype(26, bold=True)
-    sub_f = _truetype(40, bold=True)
-    body_f = _truetype(34, bold=False)
-    small_f = _truetype(24, bold=False)
-    pass_name_f = _truetype(52, bold=True)
-
-    draw.text((W // 2, 650), "AN EXCLUSIVE LVB RAMA EVENT",
+    # ===== 3) Eyebrow + title block =====
+    draw.text((W // 2, 540), "AN EXCLUSIVE LVB RAMA EVENT",
               font=eyebrow_f, fill="#b2873d", anchor="mt")
-    # Decorative dividers
-    draw.line([(W / 2 - 240, 700), (W / 2 - 70, 700)], fill="#b2873d", width=2)
-    draw.line([(W / 2 + 70, 700), (W / 2 + 240, 700)], fill="#b2873d", width=2)
-    draw.text((W // 2, 710), "RAMA BAZAAR 1.0",
+    draw.line([(W / 2 - 240, 600), (W / 2 - 70, 600)], fill="#b2873d", width=2)
+    draw.line([(W / 2 + 70, 600), (W / 2 + 240, 600)], fill="#b2873d", width=2)
+    draw.text((W // 2, 615), "RAMA BAZAAR 1.0",
               font=sub_f, fill="#1B194B", anchor="mt")
-    draw.text((W // 2, 770), "CONNECT  •  SHOWCASE  •  GROW",
+    draw.text((W // 2, 685), "CONNECT  •  SHOWCASE  •  GROW",
               font=small_f, fill="#3b3b46", anchor="mt")
 
-    # ---- 3) QR ----
-    qr_size = 560
+    # ===== 4) QR — centred =====
+    qr_size = 580
     qr_img = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
     qr_x = (W - qr_size) // 2
-    qr_y = 830
+    qr_y = 760
     draw.rectangle([(qr_x - 22, qr_y - 22), (qr_x + qr_size + 22, qr_y + qr_size + 22)],
                    outline="#b2873d", width=2)
     draw.rectangle([(qr_x - 16, qr_y - 16), (qr_x + qr_size + 16, qr_y + qr_size + 16)],
                    fill="#ffffff")
     bg.paste(qr_img, (qr_x, qr_y))
 
-    # ---- 4) Visitor info ----
-    info_y = qr_y + qr_size + 50
-    name = (v.get("full_name") or "").strip()
-    draw.text((W // 2, info_y), name.upper()[:32], font=pass_name_f, fill="#1B194B", anchor="mt")
-    draw.text((W // 2, info_y + 65), f"+91 {v.get('mobile', '')}", font=body_f, fill="#3b3b46", anchor="mt")
-    draw.text((W // 2, info_y + 115), "VISITOR PASS  ·  SCAN AT VENUE",
+    # ===== 5) Visitor info — clearly below the QR =====
+    info_y_start = qr_y + qr_size + 70  # 760 + 580 + 70 = 1410
+    name = (v.get("full_name") or "").strip().upper()[:32]
+    draw.text((W // 2, info_y_start), name, font=pass_name_f, fill="#1B194B", anchor="mt")
+    draw.text((W // 2, info_y_start + 78), f"+91 {v.get('mobile', '')}",
+              font=body_f, fill="#3b3b46", anchor="mt")
+    draw.text((W // 2, info_y_start + 138), "VISITOR PASS  ·  SCAN AT VENUE",
               font=eyebrow_f, fill="#b2873d", anchor="mt")
 
-    # ---- 5) Tech Partner credit (footer) ----
-    foot_y = H - 110
-    draw.line([(W / 2 - 220, foot_y - 24), (W / 2 - 90, foot_y - 24)], fill="#d8bc84", width=1)
-    draw.line([(W / 2 + 90, foot_y - 24), (W / 2 + 220, foot_y - 24)], fill="#d8bc84", width=1)
-    draw.text((W // 2, foot_y - 38), "TECHNOLOGY PARTNER",
-              font=_truetype(18, bold=True), fill="#7a7868", anchor="mt")
-    _paste_logo(brand / "rxt.png", max_w=420, max_h=60, cx=W // 2, cy=foot_y + 18)
+    # ===== 6) Tech Partner footer — anchored to the bottom =====
+    foot_label_y = H - 150
+    foot_logo_cy = H - 100
+    draw.line([(W / 2 - 220, foot_label_y - 14), (W / 2 - 90, foot_label_y - 14)],
+              fill="#d8bc84", width=1)
+    draw.line([(W / 2 + 90, foot_label_y - 14), (W / 2 + 220, foot_label_y - 14)],
+              fill="#d8bc84", width=1)
+    draw.text((W // 2, foot_label_y), "TECHNOLOGY PARTNER",
+              font=eyebrow_sm_f, fill="#7a7868", anchor="mt")
+    _paste_logo(brand / "rxt.png", max_w=380, max_h=54,
+                cx=W // 2, cy=foot_logo_cy)
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=False, compress_level=3)
