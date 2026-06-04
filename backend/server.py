@@ -397,19 +397,22 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             "Cache-Control": "public, max-age=86400",
         })
 
-    # Compose branded poster: 1080×1820 (3:5 portrait) — clean stacked layout, no overlaps
+    # Compose branded poster: 1080×1820 (3:5 portrait) — minimal luxury invitation
     from PIL import Image, ImageDraw
     W, H = 1080, 1820
-    bg = Image.new("RGB", (W, H), "#f8f7f4")
+    bg = Image.new("RGB", (W, H), "#f5efe1")  # warm ivory paper
     draw = ImageDraw.Draw(bg)
-    # Outer gold frame
-    draw.rectangle([(40, 40), (W - 40, H - 40)], outline="#b2873d", width=3)
-    draw.rectangle([(56, 56), (W - 56, H - 56)], outline="#d8bc84", width=1)
+
+    # Single hairline gold border (no double frame — too busy)
+    draw.rectangle([(54, 54), (W - 54, H - 54)], outline="#b2873d", width=1)
+    # Corner ticks instead of full ornament — subtle
+    for cx, cy in [(54, 54), (W - 54, 54), (54, H - 54), (W - 54, H - 54)]:
+        draw.line([(cx - 24, cy), (cx + 24, cy)], fill="#b2873d", width=1)
+        draw.line([(cx, cy - 24), (cx, cy + 24)], fill="#b2873d", width=1)
 
     brand = ROOT_DIR / "assets" / "brand"
 
-    def _paste_logo(path: Path, max_w: int, max_h: int, cx: int, cy: int, on_dark: bool = False):
-        """Paste a logo centred at (cx, cy) keeping aspect ratio."""
+    def _paste_logo(path: Path, max_w: int, max_h: int, cx: int, cy: int):
         if not path.exists():
             return
         try:
@@ -418,76 +421,118 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             new_w, new_h = int(im.width * ratio), int(im.height * ratio)
             im = im.resize((new_w, new_h), Image.LANCZOS)
             x, y = cx - new_w // 2, cy - new_h // 2
-            if on_dark:
-                bg.paste(im, (x, y), im)
-            else:
-                bg.paste(im, (x, y), im if im.mode == "RGBA" else None)
+            bg.paste(im, (x, y), im if im.mode == "RGBA" else None)
         except Exception as e:
             logger.warning(f"poster logo paste failed for {path.name}: {e}")
 
-    # Font set
-    eyebrow_sm_f   = _truetype(18, bold=True)
-    eyebrow_band_f = _truetype(22, bold=True)
-    eyebrow_f      = _truetype(26, bold=True)
-    sub_f          = _truetype(44, bold=True)
-    body_f         = _truetype(36, bold=False)
-    small_f        = _truetype(24, bold=False)
-    pass_name_f    = _truetype(56, bold=True)
+    # Restrained Cinzel + Playfair font system
+    eyebrow_tiny_f = _cinzel(16)     # "TITLE SPONSOR" etc — letter-spaced caps
+    eyebrow_sm_f   = _cinzel(20)
+    title_italic_f = _truetype(96, italic=True)  # "Rama Bazaar 1.0" — italic Playfair = couture
+    suffix_f       = _truetype(54, italic=True)
+    sub_line_f     = _cinzel(18)
+    name_italic_f  = _truetype(58, italic=True)
+    body_f         = _cinzel(24)
+    micro_f        = _cinzel(14)
 
-    # ===== 1) Title Sponsor band (top) =====
-    band_x0, band_y0, band_x1, band_y1 = 80, 90, W - 80, 240
-    draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], fill="#1B194B")
-    draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], outline="#c19b30", width=2)
-    draw.text((W // 2, band_y0 + 14), "TITLE SPONSOR",
-              font=eyebrow_band_f, fill="#c19b30", anchor="mt")
+    # ============================================================
+    # 1) TITLE SPONSOR — restrained, all-cream (no heavy navy block)
+    # ============================================================
+    draw.text((W // 2, 120), "TITLE SPONSOR", font=eyebrow_tiny_f, fill="#7a7868", anchor="mt")
+    draw.line([(W // 2 - 30, 150), (W // 2 + 30, 150)], fill="#b2873d", width=1)
+
+    # Compact Coco Salons lockup on cream — invert if needed by using a navy-on-cream chip just big enough for legibility
+    sponsor_band = Image.new("RGB", (W - 280, 110), "#1B194B")
+    # Paste this navy chip centred
+    band_w, band_h = sponsor_band.size
+    sponsor_x = (W - band_w) // 2
+    sponsor_y = 175
+    # Draw chip directly on the canvas (single line gold)
+    draw.rectangle([(sponsor_x, sponsor_y), (sponsor_x + band_w, sponsor_y + band_h)], fill="#1B194B")
+    draw.rectangle([(sponsor_x + 1, sponsor_y + 1), (sponsor_x + band_w - 1, sponsor_y + band_h - 1)],
+                   outline="#c19b30", width=1)
     _paste_logo(brand / "coco-salons.jpg",
-                max_w=band_x1 - band_x0 - 100, max_h=86,
-                cx=W // 2, cy=band_y0 + 100, on_dark=True)
+                max_w=band_w - 80, max_h=band_h - 26,
+                cx=W // 2, cy=sponsor_y + band_h // 2)
 
-    # ===== 2) Rama Bazaar emblem =====
-    _paste_logo(brand / "rb-emblem.png", max_w=240, max_h=240, cx=W // 2, cy=380)
+    # ============================================================
+    # 2) HERO — RB emblem + italic wordmark
+    # ============================================================
+    emblem_cy = 460
+    _paste_logo(brand / "rb-emblem.png", max_w=210, max_h=210, cx=W // 2, cy=emblem_cy)
 
-    # ===== 3) Eyebrow + title block =====
-    draw.text((W // 2, 540), "AN EXCLUSIVE LVB RAMA EVENT",
-              font=eyebrow_f, fill="#b2873d", anchor="mt")
-    draw.line([(W / 2 - 240, 600), (W / 2 - 70, 600)], fill="#b2873d", width=2)
-    draw.line([(W / 2 + 70, 600), (W / 2 + 240, 600)], fill="#b2873d", width=2)
-    draw.text((W // 2, 615), "RAMA BAZAAR 1.0",
-              font=sub_f, fill="#1B194B", anchor="mt")
-    draw.text((W // 2, 685), "CONNECT  •  SHOWCASE  •  GROW",
-              font=small_f, fill="#3b3b46", anchor="mt")
+    # Italic Playfair "Rama Bazaar" + delicate "1.0"
+    title_y = 620
+    # Measure widths so we can lay out "Rama Bazaar 1.0" with mixed weights
+    rama_text = "Rama Bazaar"
+    bbox_rama = draw.textbbox((0, 0), rama_text, font=title_italic_f, anchor="lt")
+    rama_w = bbox_rama[2] - bbox_rama[0]
+    one_text = "1.0"
+    bbox_one = draw.textbbox((0, 0), one_text, font=suffix_f, anchor="lt")
+    one_w = bbox_one[2] - bbox_one[0]
+    spacer = 28
+    total = rama_w + spacer + one_w
+    cx_start = (W - total) // 2
+    draw.text((cx_start, title_y), rama_text, font=title_italic_f, fill="#1B194B", anchor="lt")
+    draw.text((cx_start + rama_w + spacer, title_y + 40),
+              one_text, font=suffix_f, fill="#b2873d", anchor="lt")
 
-    # ===== 4) QR — centred =====
-    qr_size = 580
-    qr_img = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
+    # Eyebrow under title — fetched from settings if available
+    venue_text = (await get_settings()).get("venue", "")
+    sd, ed = (await get_settings()).get("start_date", ""), (await get_settings()).get("end_date", "")
+    date_str = (sd if sd == ed or not ed else f"{sd} – {ed}") if sd else ""
+    sub_bits = [b for b in [date_str, venue_text] if b]
+    if sub_bits:
+        sub_text = "   ·   ".join(sub_bits).upper()
+    else:
+        sub_text = "AN EXCLUSIVE LVB RAMA EVENT"
+    draw.text((W // 2, title_y + 170), sub_text, font=sub_line_f, fill="#7a7868", anchor="mt")
+    draw.line([(W // 2 - 36, title_y + 205), (W // 2 + 36, title_y + 205)], fill="#b2873d", width=1)
+
+    # ============================================================
+    # 3) QR — minimal: thin gold frame, white plate, no doubles
+    # ============================================================
+    qr_size = 540
+    qr_img_r = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
     qr_x = (W - qr_size) // 2
-    qr_y = 760
-    draw.rectangle([(qr_x - 22, qr_y - 22), (qr_x + qr_size + 22, qr_y + qr_size + 22)],
-                   outline="#b2873d", width=2)
-    draw.rectangle([(qr_x - 16, qr_y - 16), (qr_x + qr_size + 16, qr_y + qr_size + 16)],
+    qr_y = 840
+    pad = 26
+    draw.rectangle([(qr_x - pad, qr_y - pad), (qr_x + qr_size + pad, qr_y + qr_size + pad)],
                    fill="#ffffff")
-    bg.paste(qr_img, (qr_x, qr_y))
+    draw.rectangle([(qr_x - pad, qr_y - pad), (qr_x + qr_size + pad, qr_y + qr_size + pad)],
+                   outline="#b2873d", width=1)
+    bg.paste(qr_img_r, (qr_x, qr_y))
 
-    # ===== 5) Visitor info — clearly below the QR =====
-    info_y_start = qr_y + qr_size + 70  # 760 + 580 + 70 = 1410
-    name = (v.get("full_name") or "").strip().upper()[:32]
-    draw.text((W // 2, info_y_start), name, font=pass_name_f, fill="#1B194B", anchor="mt")
-    draw.text((W // 2, info_y_start + 78), f"+91 {v.get('mobile', '')}",
+    short_id = qr_id[:6].upper()
+    draw.text((W // 2, qr_y + qr_size + pad + 30), f"SCAN AT VENUE  ·  {short_id}",
+              font=eyebrow_sm_f, fill="#b2873d", anchor="mt")
+
+    # ============================================================
+    # 4) GUEST CARD — name italic, mobile in cinzel small caps, chapter as
+    #    elegant text (no pill — pills cheapen luxury invites)
+    # ============================================================
+    info_y = qr_y + qr_size + pad + 80
+    name = (v.get("full_name") or "").strip()
+    draw.text((W // 2, info_y), name[:30], font=name_italic_f, fill="#1B194B", anchor="mt")
+    # Thin gold divider with a single small diamond
+    div_y = info_y + 80
+    draw.line([(W / 2 - 80, div_y), (W / 2 - 14, div_y)], fill="#b2873d", width=1)
+    draw.polygon([(W // 2, div_y - 5), (W // 2 + 5, div_y),
+                  (W // 2, div_y + 5), (W // 2 - 5, div_y)], fill="#b2873d")
+    draw.line([(W / 2 + 14, div_y), (W / 2 + 80, div_y)], fill="#b2873d", width=1)
+    draw.text((W // 2, div_y + 18), f"+91  {v.get('mobile', '')}",
               font=body_f, fill="#3b3b46", anchor="mt")
-    draw.text((W // 2, info_y_start + 138), "VISITOR PASS  ·  SCAN AT VENUE",
-              font=eyebrow_f, fill="#b2873d", anchor="mt")
 
-    # ===== 6) Tech Partner footer — anchored to the bottom =====
-    foot_label_y = H - 150
-    foot_logo_cy = H - 100
-    draw.line([(W / 2 - 220, foot_label_y - 14), (W / 2 - 90, foot_label_y - 14)],
-              fill="#d8bc84", width=1)
-    draw.line([(W / 2 + 90, foot_label_y - 14), (W / 2 + 220, foot_label_y - 14)],
-              fill="#d8bc84", width=1)
-    draw.text((W // 2, foot_label_y), "TECHNOLOGY PARTNER",
-              font=eyebrow_sm_f, fill="#7a7868", anchor="mt")
-    _paste_logo(brand / "rxt.png", max_w=380, max_h=54,
-                cx=W // 2, cy=foot_logo_cy)
+    if v.get("is_lvb_member") and v.get("lvb_chapter"):
+        draw.text((W // 2, div_y + 60), f"LVB  ·  {v['lvb_chapter'].upper()}  CHAPTER",
+                  font=eyebrow_tiny_f, fill="#b2873d", anchor="mt")
+
+    # ============================================================
+    # 5) FOOTER — micro-credit, no boxy treatment
+    # ============================================================
+    foot_y = H - 130
+    draw.text((W // 2, foot_y), "TECHNOLOGY PARTNER", font=micro_f, fill="#7a7868", anchor="mt")
+    _paste_logo(brand / "rxt.png", max_w=260, max_h=36, cx=W // 2, cy=foot_y + 50)
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=False, compress_level=3)
