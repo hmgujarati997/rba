@@ -367,6 +367,14 @@ async def visitor_retrieve(payload: dict):
         raise HTTPException(status_code=404, detail="No registration found for this mobile number")
     return {"visitor": v}
 
+@api.get("/visitors/by-qr/{qr_id}")
+async def visitor_by_qr(qr_id: str):
+    v = await db.visitors.find_one({"qr_id": qr_id}, {"_id": 0, "password_hash": 0})
+    if not v:
+        raise HTTPException(status_code=404, detail="QR not found")
+    return {"visitor": v}
+
+
 @api.get("/visitors/qr/{qr_id}.png")
 async def visitor_qr_image(qr_id: str):
     v = await db.visitors.find_one({"qr_id": qr_id}, {"_id": 0})
