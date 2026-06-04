@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import TopBar from "../components/TopBar";
-import SiteFooter from "../components/SiteFooter";
 import api, { API } from "../lib/api";
 import { Download, Share2, MessageCircle, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
@@ -197,8 +196,6 @@ export default function VisitorSuccess() {
           Back to home →
         </Link>
       </div>
-
-      <SiteFooter />
     </div>
   );
 }

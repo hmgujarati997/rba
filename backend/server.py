@@ -387,62 +387,90 @@ async def visitor_qr_image(qr_id: str):
     qr_img = qr.make_image(fill_color="#1f1f27", back_color="#ffffff").convert("RGB")
 
     # Compose branded poster: 1080x1620 (3:4.5) — looks great in WhatsApp preview
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
     W, H = 1080, 1620
     bg = Image.new("RGB", (W, H), "#f8f7f4")
     draw = ImageDraw.Draw(bg)
-    # Gold frame
+    # Outer gold frame
     draw.rectangle([(40, 40), (W - 40, H - 40)], outline="#b2873d", width=3)
     draw.rectangle([(56, 56), (W - 56, H - 56)], outline="#d8bc84", width=1)
 
-    # Fonts (fall back to default if not available)
-    def _font(size: int, bold: bool = False):
-        candidates = [
-            "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf" if bold else "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        ]
-        for p in candidates:
-            if os.path.exists(p):
-                try:
-                    return ImageFont.truetype(p, size)
-                except Exception:
-                    pass
-        return ImageFont.load_default()
+    brand = ROOT_DIR / "assets" / "brand"
 
-    eyebrow_f = _font(28, False)
-    title_f = _font(96, True)
-    sub_f = _font(40, True)
-    body_f = _font(34, False)
-    small_f = _font(26, False)
+    def _paste_logo(path: Path, max_w: int, max_h: int, cx: int, cy: int, on_dark: bool = False):
+        """Paste a logo centred at (cx, cy) keeping aspect ratio."""
+        if not path.exists():
+            return
+        try:
+            im = Image.open(path).convert("RGBA")
+            ratio = min(max_w / im.width, max_h / im.height)
+            new_w, new_h = int(im.width * ratio), int(im.height * ratio)
+            im = im.resize((new_w, new_h), Image.LANCZOS)
+            x, y = cx - new_w // 2, cy - new_h // 2
+            if on_dark:
+                bg.paste(im, (x, y), im)
+            else:
+                # JPGs / opaque PNGs already blend fine on cream
+                bg.paste(im, (x, y), im if im.mode == "RGBA" else None)
+        except Exception as e:
+            logger.warning(f"poster logo paste failed for {path.name}: {e}")
 
-    def _text_center(text: str, y: int, font, fill="#1f1f27"):
-        bbox = draw.textbbox((0, 0), text, font=font)
-        w = bbox[2] - bbox[0]
-        draw.text(((W - w) / 2, y), text, font=font, fill=fill)
+    # ---- 1) Title Sponsor band (Coco Salons) — top ----
+    band_x0, band_y0, band_x1, band_y1 = 80, 90, W - 80, 280
+    draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], fill="#1B194B")
+    draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], outline="#c19b30", width=2)
+    eyebrow_navy_f = _truetype(20, bold=True)
+    draw.text((W // 2, band_y0 + 16), "TITLE SPONSOR",
+              font=eyebrow_navy_f, fill="#c19b30", anchor="mt")
+    _paste_logo(brand / "coco-salons.jpg",
+                max_w=band_x1 - band_x0 - 80, max_h=120,
+                cx=W // 2, cy=(band_y0 + band_y1) // 2 + 16, on_dark=True)
 
-    _text_center("AN EXCLUSIVE LVB RAMA EVENT", 130, eyebrow_f, fill="#b2873d")
-    _text_center("RAMA", 200, title_f, fill="#1f1f27")
-    # Divider
-    draw.line([(W / 2 - 240, 350), (W / 2 - 70, 350)], fill="#b2873d", width=2)
-    draw.line([(W / 2 + 70, 350), (W / 2 + 240, 350)], fill="#b2873d", width=2)
-    _text_center("BAZAAR 1.0", 330, sub_f, fill="#b2873d")
-    _text_center("CONNECT  •  SHOWCASE  •  GROW", 400, small_f, fill="#1f1f27")
+    # ---- 2) Rama Bazaar emblem + title ----
+    _paste_logo(brand / "rb-emblem.png", max_w=320, max_h=320, cx=W // 2, cy=470)
 
-    # QR
-    qr_size = 760
+    eyebrow_f = _truetype(26, bold=True)
+    sub_f = _truetype(40, bold=True)
+    body_f = _truetype(34, bold=False)
+    small_f = _truetype(24, bold=False)
+    pass_name_f = _truetype(52, bold=True)
+
+    draw.text((W // 2, 650), "AN EXCLUSIVE LVB RAMA EVENT",
+              font=eyebrow_f, fill="#b2873d", anchor="mt")
+    # Decorative dividers
+    draw.line([(W / 2 - 240, 700), (W / 2 - 70, 700)], fill="#b2873d", width=2)
+    draw.line([(W / 2 + 70, 700), (W / 2 + 240, 700)], fill="#b2873d", width=2)
+    draw.text((W // 2, 710), "RAMA BAZAAR 1.0",
+              font=sub_f, fill="#1B194B", anchor="mt")
+    draw.text((W // 2, 770), "CONNECT  •  SHOWCASE  •  GROW",
+              font=small_f, fill="#3b3b46", anchor="mt")
+
+    # ---- 3) QR ----
+    qr_size = 560
     qr_img = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
     qr_x = (W - qr_size) // 2
-    qr_y = 520
-    # subtle frame around QR
-    draw.rectangle([(qr_x - 20, qr_y - 20), (qr_x + qr_size + 20, qr_y + qr_size + 20)], outline="#d8bc84", width=2)
+    qr_y = 830
+    draw.rectangle([(qr_x - 22, qr_y - 22), (qr_x + qr_size + 22, qr_y + qr_size + 22)],
+                   outline="#b2873d", width=2)
+    draw.rectangle([(qr_x - 16, qr_y - 16), (qr_x + qr_size + 16, qr_y + qr_size + 16)],
+                   fill="#ffffff")
     bg.paste(qr_img, (qr_x, qr_y))
 
-    # Visitor info
-    name = v.get("full_name", "")
-    _text_center(name.upper()[:32], qr_y + qr_size + 70, sub_f, fill="#1f1f27")
-    _text_center(f"+91 {v.get('mobile','')}", qr_y + qr_size + 130, body_f, fill="#3b3b46")
-    _text_center("VISITOR PASS  ·  SCAN AT VENUE", qr_y + qr_size + 200, eyebrow_f, fill="#b2873d")
+    # ---- 4) Visitor info ----
+    info_y = qr_y + qr_size + 50
+    name = (v.get("full_name") or "").strip()
+    draw.text((W // 2, info_y), name.upper()[:32], font=pass_name_f, fill="#1B194B", anchor="mt")
+    draw.text((W // 2, info_y + 65), f"+91 {v.get('mobile', '')}", font=body_f, fill="#3b3b46", anchor="mt")
+    draw.text((W // 2, info_y + 115), "VISITOR PASS  ·  SCAN AT VENUE",
+              font=eyebrow_f, fill="#b2873d", anchor="mt")
+
+    # ---- 5) Tech Partner credit (footer) ----
+    foot_y = H - 110
+    draw.line([(W / 2 - 220, foot_y - 24), (W / 2 - 90, foot_y - 24)], fill="#d8bc84", width=1)
+    draw.line([(W / 2 + 90, foot_y - 24), (W / 2 + 220, foot_y - 24)], fill="#d8bc84", width=1)
+    draw.text((W // 2, foot_y - 38), "TECHNOLOGY PARTNER",
+              font=_truetype(18, bold=True), fill="#7a7868", anchor="mt")
+    _paste_logo(brand / "rxt.png", max_w=420, max_h=60, cx=W // 2, cy=foot_y + 18)
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=False, compress_level=3)
