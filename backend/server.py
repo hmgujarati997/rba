@@ -397,15 +397,14 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             "Cache-Control": "public, max-age=86400",
         })
 
-    # Compose branded poster: 1080×1820 (3:5 portrait) — minimal luxury invitation
+    # Compose branded poster: 1080×1820 portrait — professional event invitation
     from PIL import Image, ImageDraw
     W, H = 1080, 1820
     bg = Image.new("RGB", (W, H), "#f5efe1")  # warm ivory paper
     draw = ImageDraw.Draw(bg)
 
-    # Single hairline gold border (no double frame — too busy)
+    # Hairline gold frame with corner ticks
     draw.rectangle([(54, 54), (W - 54, H - 54)], outline="#b2873d", width=1)
-    # Corner ticks instead of full ornament — subtle
     for cx, cy in [(54, 54), (W - 54, 54), (54, H - 54), (W - 54, H - 54)]:
         draw.line([(cx - 24, cy), (cx + 24, cy)], fill="#b2873d", width=1)
         draw.line([(cx, cy - 24), (cx, cy + 24)], fill="#b2873d", width=1)
@@ -414,7 +413,7 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
 
     def _paste_logo(path: Path, max_w: int, max_h: int, cx: int, cy: int):
         if not path.exists():
-            return
+            return None
         try:
             im = Image.open(path).convert("RGBA")
             ratio = min(max_w / im.width, max_h / im.height)
@@ -422,81 +421,72 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             im = im.resize((new_w, new_h), Image.LANCZOS)
             x, y = cx - new_w // 2, cy - new_h // 2
             bg.paste(im, (x, y), im if im.mode == "RGBA" else None)
+            return (x, y, new_w, new_h)
         except Exception as e:
             logger.warning(f"poster logo paste failed for {path.name}: {e}")
+            return None
 
-    # Restrained Cinzel + Playfair font system
-    eyebrow_tiny_f = _cinzel(16)     # "TITLE SPONSOR" etc — letter-spaced caps
-    eyebrow_sm_f   = _cinzel(20)
-    title_italic_f = _truetype(96, italic=True)  # "Rama Bazaar 1.0" — italic Playfair = couture
-    suffix_f       = _truetype(54, italic=True)
-    sub_line_f     = _cinzel(18)
-    name_italic_f  = _truetype(58, italic=True)
-    body_f         = _cinzel(24)
-    micro_f        = _cinzel(14)
+    # Fonts (Playfair + Cinzel)
+    eyebrow_tiny_f = _cinzel(16)
+    eyebrow_band_f = _truetype(26, bold=True)
+    eyebrow_md_f   = _cinzel(20)
+    name_italic_f  = _truetype(60, italic=True)
+    body_f         = _cinzel(26)
+    micro_f        = _cinzel(15)
 
     # ============================================================
-    # 1) TITLE SPONSOR — restrained, all-cream (no heavy navy block)
+    # 1) TITLE SPONSOR — prominent navy band
     # ============================================================
-    draw.text((W // 2, 120), "TITLE SPONSOR", font=eyebrow_tiny_f, fill="#7a7868", anchor="mt")
-    draw.line([(W // 2 - 30, 150), (W // 2 + 30, 150)], fill="#b2873d", width=1)
-
-    # Compact Coco Salons lockup on cream — invert if needed by using a navy-on-cream chip just big enough for legibility
-    sponsor_band = Image.new("RGB", (W - 280, 110), "#1B194B")
-    # Paste this navy chip centred
-    band_w, band_h = sponsor_band.size
-    sponsor_x = (W - band_w) // 2
-    sponsor_y = 175
-    # Draw chip directly on the canvas (single line gold)
-    draw.rectangle([(sponsor_x, sponsor_y), (sponsor_x + band_w, sponsor_y + band_h)], fill="#1B194B")
-    draw.rectangle([(sponsor_x + 1, sponsor_y + 1), (sponsor_x + band_w - 1, sponsor_y + band_h - 1)],
+    band_x0, band_y0, band_x1, band_y1 = 90, 110, W - 90, 320
+    draw.rectangle([(band_x0, band_y0), (band_x1, band_y1)], fill="#1B194B")
+    draw.rectangle([(band_x0 + 4, band_y0 + 4), (band_x1 - 4, band_y1 - 4)],
                    outline="#c19b30", width=1)
+    # Eyebrow inside band
+    draw.text((W // 2, band_y0 + 18), "TITLE SPONSOR",
+              font=eyebrow_band_f, fill="#c19b30", anchor="mt")
+    # Hairline under eyebrow
+    draw.line([(W // 2 - 36, band_y0 + 60), (W // 2 + 36, band_y0 + 60)],
+              fill="#c19b30", width=1)
+    # Coco Salons logo — large, centered in remainder
     _paste_logo(brand / "coco-salons.jpg",
-                max_w=band_w - 80, max_h=band_h - 26,
-                cx=W // 2, cy=sponsor_y + band_h // 2)
+                max_w=band_x1 - band_x0 - 120, max_h=120,
+                cx=W // 2, cy=band_y0 + 130)
 
     # ============================================================
-    # 2) HERO — RB emblem + italic wordmark
+    # 2) RAMA BAZAAR 1.0 HERO LOCKUP (official design — includes RB monogram,
+    #    "RAMA", "BAZAAR 1.0", "CONNECT · SHOWCASE · GROW" tagline)
     # ============================================================
-    emblem_cy = 460
-    _paste_logo(brand / "rb-emblem.png", max_w=210, max_h=210, cx=W // 2, cy=emblem_cy)
+    lockup_cy = 620
+    used_lockup = _paste_logo(brand / "rama-bazaar-lockup.png",
+                              max_w=600, max_h=440, cx=W // 2, cy=lockup_cy)
+    if not used_lockup:
+        # Fallback: monogram + drawn title
+        _paste_logo(brand / "rb-emblem.png", max_w=200, max_h=200, cx=W // 2, cy=500)
+        draw.text((W // 2, 700), "RAMA BAZAAR 1.0", font=_truetype(58, bold=True),
+                  fill="#1B194B", anchor="mt")
 
-    # Italic Playfair "Rama Bazaar" + delicate "1.0"
-    title_y = 620
-    # Measure widths so we can lay out "Rama Bazaar 1.0" with mixed weights
-    rama_text = "Rama Bazaar"
-    bbox_rama = draw.textbbox((0, 0), rama_text, font=title_italic_f, anchor="lt")
-    rama_w = bbox_rama[2] - bbox_rama[0]
-    one_text = "1.0"
-    bbox_one = draw.textbbox((0, 0), one_text, font=suffix_f, anchor="lt")
-    one_w = bbox_one[2] - bbox_one[0]
-    spacer = 28
-    total = rama_w + spacer + one_w
-    cx_start = (W - total) // 2
-    draw.text((cx_start, title_y), rama_text, font=title_italic_f, fill="#1B194B", anchor="lt")
-    draw.text((cx_start + rama_w + spacer, title_y + 40),
-              one_text, font=suffix_f, fill="#b2873d", anchor="lt")
-
-    # Eyebrow under title — fetched from settings if available
-    venue_text = (await get_settings()).get("venue", "")
-    sd, ed = (await get_settings()).get("start_date", ""), (await get_settings()).get("end_date", "")
-    date_str = (sd if sd == ed or not ed else f"{sd} – {ed}") if sd else ""
-    sub_bits = [b for b in [date_str, venue_text] if b]
-    if sub_bits:
-        sub_text = "   ·   ".join(sub_bits).upper()
-    else:
-        sub_text = "AN EXCLUSIVE LVB RAMA EVENT"
-    draw.text((W // 2, title_y + 170), sub_text, font=sub_line_f, fill="#7a7868", anchor="mt")
-    draw.line([(W // 2 - 36, title_y + 205), (W // 2 + 36, title_y + 205)], fill="#b2873d", width=1)
+    # Subtle event subline (date · venue, if set) — directly under lockup
+    try:
+        s = await get_settings()
+        sd, ed = s.get("start_date", ""), s.get("end_date", "")
+        venue = s.get("venue", "")
+        date_str = sd if (not ed or sd == ed) else f"{sd} – {ed}"
+        sub_bits = [b for b in [date_str, venue] if b]
+        if sub_bits:
+            sub_text = "   ·   ".join(sub_bits).upper()
+            draw.text((W // 2, 880), sub_text, font=eyebrow_md_f, fill="#7a7868", anchor="mt")
+            draw.line([(W / 2 - 30, 920), (W / 2 + 30, 920)], fill="#b2873d", width=1)
+    except Exception:
+        pass
 
     # ============================================================
-    # 3) QR — minimal: thin gold frame, white plate, no doubles
+    # 3) QR — minimal: thin gold frame, white plate
     # ============================================================
-    qr_size = 540
+    qr_size = 440
     qr_img_r = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
     qr_x = (W - qr_size) // 2
-    qr_y = 840
-    pad = 26
+    qr_y = 960
+    pad = 24
     draw.rectangle([(qr_x - pad, qr_y - pad), (qr_x + qr_size + pad, qr_y + qr_size + pad)],
                    fill="#ffffff")
     draw.rectangle([(qr_x - pad, qr_y - pad), (qr_x + qr_size + pad, qr_y + qr_size + pad)],
@@ -504,35 +494,40 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
     bg.paste(qr_img_r, (qr_x, qr_y))
 
     short_id = qr_id[:6].upper()
-    draw.text((W // 2, qr_y + qr_size + pad + 30), f"SCAN AT VENUE  ·  {short_id}",
-              font=eyebrow_sm_f, fill="#b2873d", anchor="mt")
+    draw.text((W // 2, qr_y + qr_size + pad + 22), f"SCAN AT VENUE  ·  {short_id}",
+              font=eyebrow_md_f, fill="#b2873d", anchor="mt")
 
     # ============================================================
-    # 4) GUEST CARD — name italic, mobile in cinzel small caps, chapter as
-    #    elegant text (no pill — pills cheapen luxury invites)
+    # 4) GUEST — italic name + Cinzel mobile + chapter line
     # ============================================================
-    info_y = qr_y + qr_size + pad + 80
+    info_y = qr_y + qr_size + pad + 72   # 960+440+24+72 = 1496
     name = (v.get("full_name") or "").strip()
-    draw.text((W // 2, info_y), name[:30], font=name_italic_f, fill="#1B194B", anchor="mt")
-    # Thin gold divider with a single small diamond
-    div_y = info_y + 80
+    draw.text((W // 2, info_y), name[:30],
+              font=name_italic_f, fill="#1B194B", anchor="mt")
+    # Diamond divider
+    div_y = info_y + 72   # 1568
     draw.line([(W / 2 - 80, div_y), (W / 2 - 14, div_y)], fill="#b2873d", width=1)
     draw.polygon([(W // 2, div_y - 5), (W // 2 + 5, div_y),
                   (W // 2, div_y + 5), (W // 2 - 5, div_y)], fill="#b2873d")
     draw.line([(W / 2 + 14, div_y), (W / 2 + 80, div_y)], fill="#b2873d", width=1)
-    draw.text((W // 2, div_y + 18), f"+91  {v.get('mobile', '')}",
-              font=body_f, fill="#3b3b46", anchor="mt")
-
+    draw.text((W // 2, div_y + 14), f"+91  {v.get('mobile', '')}",
+              font=body_f, fill="#3b3b46", anchor="mt")   # 1582
     if v.get("is_lvb_member") and v.get("lvb_chapter"):
-        draw.text((W // 2, div_y + 60), f"LVB  ·  {v['lvb_chapter'].upper()}  CHAPTER",
-                  font=eyebrow_tiny_f, fill="#b2873d", anchor="mt")
+        draw.text((W // 2, div_y + 54),
+                  f"LVB  ·  {v['lvb_chapter'].upper()}  CHAPTER",
+                  font=eyebrow_tiny_f, fill="#b2873d", anchor="mt")   # 1622
 
     # ============================================================
-    # 5) FOOTER — micro-credit, no boxy treatment
+    # 5) FOOTER — Technology Partner, anchored to bottom
     # ============================================================
-    foot_y = H - 130
-    draw.text((W // 2, foot_y), "TECHNOLOGY PARTNER", font=micro_f, fill="#7a7868", anchor="mt")
-    _paste_logo(brand / "rxt.png", max_w=260, max_h=36, cx=W // 2, cy=foot_y + 50)
+    foot_y = 1700
+    draw.line([(W / 2 - 220, foot_y - 16), (W / 2 - 90, foot_y - 16)],
+              fill="#d8bc84", width=1)
+    draw.line([(W / 2 + 90, foot_y - 16), (W / 2 + 220, foot_y - 16)],
+              fill="#d8bc84", width=1)
+    draw.text((W // 2, foot_y), "TECHNOLOGY PARTNER",
+              font=micro_f, fill="#7a7868", anchor="mt")
+    _paste_logo(brand / "rxt.png", max_w=220, max_h=30, cx=W // 2, cy=foot_y + 44)
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=False, compress_level=3)
