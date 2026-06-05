@@ -8,33 +8,6 @@ import api, { BACKEND_URL } from "../lib/api";
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
 
-const WHY = [
-  {
-    t: "Owners. Not Their Teams.",
-    d: "The founders themselves are on the floor — the people who actually decide, build and deliver. Speak to the maker, not the messenger.",
-  },
-  {
-    t: "A Cross-Section of Industries.",
-    d: "Textiles, jewellery, F&B, real estate, services, technology and craft — discover serious businesses across categories in one curated room, not seven separate trade fairs.",
-  },
-  {
-    t: "Discover Before Anyone Else.",
-    d: "Unannounced launches, limited collections and private previews — many of which reach the open market only months later, if at all.",
-  },
-  {
-    t: "Conversations That Open Doors.",
-    d: "Sourcing partners, distributors, collaborators, hires, mentors — built over a quiet afternoon, not another cold message. The kind of meetings that don't happen on calendars.",
-  },
-  {
-    t: "Curated, Not Crowded.",
-    d: "Every exhibitor is a vetted LVB Rama member. No filler stalls, no time-wasters — two unhurried hours here is a month of qualified meetings elsewhere.",
-  },
-  {
-    t: "An Experience Worth Showing Up For.",
-    d: "Considered hospitality, refined details and the company of people who take their craft seriously. The kind of room you want to be seen in.",
-  },
-];
-
 const FAQS = [
   { q: "Who can attend Rama Bazaar 1.0?", a: "Visitors are open to all by registration. Exhibitor stalls are exclusive to LVB Rama members on a first-come, first-served basis." },
   { q: "Is registration free?", a: "Yes, visitor registration is complimentary. Exhibitor onboarding follows the LVB Rama member fee structure." },
@@ -217,26 +190,6 @@ export default function Landing() {
         <p className="mt-6 text-base leading-relaxed" style={{ color: "#3b3b46" }}>
           Rama Bazaar 1.0 is the inaugural exhibition of LVB Rama — a deliberately curated stage where founders, family businesses and category leaders come together to showcase, collaborate and grow. Expect quiet luxury, considered conversations and the right room at the right time.
         </p>
-      </section>
-
-      <div className="divider-thin" />
-
-      {/* WHY */}
-      <section className="max-w-xl mx-auto px-6 py-16">
-        <div className="eyebrow">Why Visit</div>
-        <h2 className="font-serif-display text-3xl sm:text-4xl mt-3">Six reasons people clear their calendar.</h2>
-        <p className="mt-4 text-base leading-relaxed" style={{ color: "#3b3b46" }}>
-          Most exhibitions chase footfall. Rama Bazaar 1.0 chases the right footfall — and rewards the people who show up.
-        </p>
-        <div className="mt-8 space-y-6">
-          {WHY.map((w, i) => (
-            <div key={w.t} className="card-luxe p-6">
-              <div className="eyebrow" style={{ color: "#b2873d" }}>{String(i + 1).padStart(2, "0")}</div>
-              <h3 className="font-serif-display text-2xl mt-2">{w.t}</h3>
-              <p className="mt-2 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{w.d}</p>
-            </div>
-          ))}
-        </div>
       </section>
 
       <div className="divider-thin" />
