@@ -397,9 +397,9 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
             "Cache-Control": "public, max-age=86400",
         })
 
-    # Compose branded poster: 1080×1820 portrait — mirrors the on-page ticket card
+    # Compose branded poster: 1080×1900 portrait — mirrors the on-page ticket card
     from PIL import Image, ImageDraw, ImageFilter
-    W, H = 1080, 1820
+    W, H = 1080, 1900
     bg = Image.new("RGB", (W, H), "#f5efe1")
     draw = ImageDraw.Draw(bg)
 
@@ -458,7 +458,7 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
     # 2) MAIN TICKET CARD — white, rounded, gold hairline + shadow
     # ============================================================
     card_x0, card_x1 = 80, W - 80
-    card_y0, card_y1 = 420, 1700
+    card_y0, card_y1 = 420, 1790
     shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
     sd.rounded_rectangle([(card_x0 + 4, card_y0 + 14), (card_x1 + 4, card_y1 + 14)],
@@ -475,13 +475,13 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
     draw.text((W // 2, card_y0 + 50), "VISITOR PASS",
               font=visitor_lbl_f, fill="#b2873d", anchor="mt")
 
-    # Official Rama Bazaar lockup
+    # Official Rama Bazaar lockup — large, hero placement
     _paste(brand / "rama-bazaar-lockup.png",
-           max_w=380, max_h=280, cx=W // 2, cy=card_y0 + 250)
+           max_w=620, max_h=420, cx=W // 2, cy=card_y0 + 310)
 
-    # Visitor name (italic Playfair) + mobile
+    # Visitor name (italic Playfair) + mobile — pulled up close to the lockup
     name = (v.get("full_name") or "").strip()
-    name_y = card_y0 + 470
+    name_y = card_y0 + 540
     draw.text((W // 2, name_y), name[:30],
               font=name_italic_f, fill="#1B194B", anchor="mt")
     draw.text((W // 2, name_y + 84), f"+91 {v.get('mobile', '')}",
@@ -502,7 +502,7 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
                   font=chip_f, fill="#b2873d", anchor="mm")
 
     # --- Perforation divider ---
-    perf_y = name_y + 240
+    perf_y = name_y + 215
     notch_r = 18
     draw.ellipse([(card_x0 - notch_r, perf_y - notch_r),
                   (card_x0 + notch_r, perf_y + notch_r)],
@@ -518,44 +518,54 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
         draw.line([(x, perf_y), (x_end, perf_y)], fill="#b2873d", width=2)
         x += 26
 
-    # --- QR sub-card (cream bg, gold border) — contains QR + scan + date ---
+    # --- QR sub-card (cream bg, gold border) — contains QR + scan + date/venue ---
     qr_card_x0, qr_card_x1 = card_x0 + 100, card_x1 - 100
-    qr_card_y0 = perf_y + 35
-    qr_card_y1 = qr_card_y0 + 500
+    qr_card_y0 = perf_y + 30
+    qr_card_y1 = qr_card_y0 + 560
     draw.rounded_rectangle([(qr_card_x0, qr_card_y0), (qr_card_x1, qr_card_y1)],
                            radius=20, fill="#fbf8f0", outline="#d8bc84", width=1)
     qr_size = 320
     qr_img_r = qr_img.resize((qr_size, qr_size), Image.LANCZOS)
-    bg.paste(qr_img_r, ((W - qr_size) // 2, qr_card_y0 + 30))
+    bg.paste(qr_img_r, ((W - qr_size) // 2, qr_card_y0 + 28))
 
     # Scan caption inside QR sub-card, below the QR
-    scan_y = qr_card_y0 + 380
+    scan_y = qr_card_y0 + 375
     draw.text((W // 2, scan_y), f"SCAN AT VENUE  ·  {qr_id[:6].upper()}",
               font=short_id_f, fill="#b2873d", anchor="mt")
 
-    # Date · Venue row inside QR sub-card, below scan caption
+    # Date row + Venue row — each on its own centered line so long venue names fit
     try:
         s = await get_settings()
         sd_, ed_ = s.get("start_date", ""), s.get("end_date", "")
         venue = s.get("venue", "")
         date_str_disp = sd_ if (not ed_ or sd_ == ed_) else f"{sd_} – {ed_}"
-        info_y_row = qr_card_y0 + 445
-        if date_str_disp:
-            ic_x = W // 2 - 200
-            draw.rectangle([(ic_x - 18, info_y_row - 10), (ic_x - 4, info_y_row + 10)],
-                           outline="#b2873d", width=2)
-            draw.line([(ic_x - 18, info_y_row - 4), (ic_x - 4, info_y_row - 4)],
-                      fill="#b2873d", width=2)
-            draw.text((ic_x + 4, info_y_row), date_str_disp,
+
+        def _draw_centered_row(row_y: int, icon: str, text: str):
+            if not text:
+                return
+            tb = draw.textbbox((0, 0), text, font=info_f, anchor="lt")
+            tw = tb[2] - tb[0]
+            icon_w = 26  # icon + gap
+            total = icon_w + tw
+            start_x = (W - total) // 2
+            icon_cx = start_x + 9
+            if icon == "cal":
+                draw.rectangle([(icon_cx - 10, row_y - 12), (icon_cx + 10, row_y + 12)],
+                               outline="#b2873d", width=2)
+                draw.line([(icon_cx - 10, row_y - 4), (icon_cx + 10, row_y - 4)],
+                          fill="#b2873d", width=2)
+            elif icon == "pin":
+                draw.ellipse([(icon_cx - 9, row_y - 12), (icon_cx + 9, row_y + 6)],
+                             outline="#b2873d", width=2)
+                draw.polygon([(icon_cx - 5, row_y + 4), (icon_cx + 5, row_y + 4),
+                              (icon_cx, row_y + 14)], fill="#b2873d")
+            draw.text((start_x + icon_w, row_y), text,
                       font=info_f, fill="#3b3b46", anchor="lm")
-        if venue:
-            pin_x = W // 2 + 70
-            draw.ellipse([(pin_x - 12, info_y_row - 12), (pin_x + 4, info_y_row + 4)],
-                         outline="#b2873d", width=2)
-            draw.polygon([(pin_x - 4, info_y_row + 2), (pin_x + 4, info_y_row + 2),
-                          (pin_x, info_y_row + 14)], fill="#b2873d")
-            draw.text((pin_x + 18, info_y_row), venue,
-                      font=info_f, fill="#3b3b46", anchor="lm")
+
+        date_row_y = qr_card_y0 + 445
+        venue_row_y = qr_card_y0 + 500
+        _draw_centered_row(date_row_y, "cal", date_str_disp)
+        _draw_centered_row(venue_row_y, "pin", venue)
     except Exception:
         pass
 
