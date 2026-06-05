@@ -431,10 +431,10 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
     micro_f       = _cinzel(18)
 
     # ============================================================
-    # 1) TITLE SPONSOR header — gold-flanked eyebrow + rounded navy band
+    # 1) POWERED BY header — gold-flanked eyebrow + rounded navy band
     # ============================================================
     # Eyebrow with side dashes
-    draw.text((W // 2, 100), "TITLE SPONSOR", font=eyebrow_md, fill="#b2873d", anchor="mt")
+    draw.text((W // 2, 100), "POWERED BY", font=eyebrow_md, fill="#b2873d", anchor="mt")
     draw.line([(W // 2 - 290, 118), (W // 2 - 130, 118)], fill="#b2873d", width=1)
     draw.line([(W // 2 + 130, 118), (W // 2 + 290, 118)], fill="#b2873d", width=1)
 

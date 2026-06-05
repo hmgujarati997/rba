@@ -57,11 +57,11 @@ export default function Landing() {
     <div data-testid="landing-page" className="relative">
       <PopupBanner />
 
-      {/* TITLE SPONSOR — top, above hero */}
+      {/* POWERED BY — top, above hero */}
       <section className="max-w-xl mx-auto px-6 pt-5 pb-1 animate-fadeUp" data-testid="title-sponsor-top">
         <div className="flex items-center justify-center gap-2.5 mb-3">
           <span style={{ height: 1, width: 24, background: "#b2873d", display: "inline-block" }} />
-          <span className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Title Sponsor</span>
+          <span className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Powered by</span>
           <span style={{ height: 1, width: 24, background: "#b2873d", display: "inline-block" }} />
         </div>
         <div

@@ -31,7 +31,7 @@ export default function PopupBanner() {
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-fadeIn" style={{ background: "rgba(31,31,39,0.55)" }} onClick={close}>
       <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden card-luxe animate-fadeUp" onClick={(e) => e.stopPropagation()} data-testid="popup-banner">
         <div className="flex items-center justify-between px-5 pt-4">
-          <span className="eyebrow">Title Sponsor</span>
+          <span className="eyebrow">Powered by</span>
           <button data-testid="popup-close" onClick={close} className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ borderColor: "#d8bc84" }} aria-label="Close">
             <X size={16} />
           </button>

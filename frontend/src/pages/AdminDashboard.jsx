@@ -335,7 +335,7 @@ function Sponsors() {
         <div><label className="label-luxe">Placement</label>
           <select className="input-luxe" value={form.placement} onChange={(e) => setForm({...form, placement: e.target.value})}>
             <option value="inline">Inline (Roster)</option>
-            <option value="popup">Popup (Title Sponsor)</option>
+            <option value="popup">Popup (Powered by)</option>
             <option value="footer">Footer</option>
             <option value="featured">Featured Section</option>
           </select>

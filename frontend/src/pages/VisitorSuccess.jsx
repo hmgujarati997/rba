@@ -10,7 +10,7 @@ function TitleSponsorBand() {
     <section className="max-w-xl mx-auto px-6 pt-5 pb-1" data-testid="visitor-title-sponsor">
       <div className="flex items-center justify-center gap-2.5 mb-3">
         <span style={{ height: 1, width: 22, background: "#b2873d", display: "inline-block" }} />
-        <span className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Title Sponsor</span>
+        <span className="eyebrow" style={{ color: "#b2873d", fontSize: 10 }}>Powered by</span>
         <span style={{ height: 1, width: 22, background: "#b2873d", display: "inline-block" }} />
       </div>
       <div
