@@ -68,8 +68,7 @@ export default function DigitalCard() {
       <div className="relative" style={{ background: banner ? `url(${banner}) center/cover` : "linear-gradient(180deg,#efe7d2 0%,#f5efe1 100%)" }}>
         <div className="relative" style={{ background: banner ? "linear-gradient(180deg, rgba(27,25,75,0.55) 0%, rgba(245,239,225,0.95) 90%)" : "transparent", paddingBottom: 80, paddingTop: 32 }}>
           {/* Top bar */}
-          <div className="px-6 flex items-center justify-between">
-            <Link to="/" className="eyebrow" style={{ color: banner ? "#fbf6e8" : "#b2873d" }}>RAMA BAZAAR 1.0</Link>
+          <div className="px-6 flex items-center justify-end">
             <button onClick={shareCard} data-testid="card-share-btn" className="text-xs uppercase tracking-luxe inline-flex items-center gap-2"
               style={{ color: banner ? "#fbf6e8" : "#1f1f27" }}>
               <Share2 size={14} /> Share
@@ -257,13 +256,6 @@ export default function DigitalCard() {
               </div>
             </Section>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-10">
-          <div className="eyebrow" style={{ color: "#b2873d" }}>Powered by</div>
-          <Link to="/" className="font-serif-display text-xl mt-1 inline-block" style={{ color: "#1B194B" }}>Rama Bazaar 1.0</Link>
-          <div className="text-xs mt-1" style={{ color: "#7a7868" }}>by LVB Rama · Connect · Showcase · Grow</div>
         </div>
       </div>
     </div>
