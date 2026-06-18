@@ -108,14 +108,14 @@ export default function DigitalCard() {
       </div>
 
       {/* MAIN CARD */}
-      <div className="px-5 -mt-12 pb-12">
-        <div className="max-w-md mx-auto card-luxe p-6" style={{ borderRadius: 22, boxShadow: "0 24px 60px -28px rgba(27,25,75,0.32)" }}>
+      <div className="px-5 -mt-10 pb-12" style={{ position: "relative", zIndex: 2 }}>
+        <div className="max-w-md mx-auto card-luxe p-6" style={{ borderRadius: 22, boxShadow: "0 24px 60px -28px rgba(27,25,75,0.32)", background: "#ffffff" }}>
           {/* Save to contacts — hero CTA */}
           <a
             href={`${BACKEND_URL}/api/c/${slug}/vcard`}
             data-testid="save-to-contacts"
-            className="w-full inline-flex items-center justify-center gap-2 rounded-full"
-            style={{ background: "#1B194B", color: "#fbf6e8", padding: "16px 20px", letterSpacing: "0.16em", textTransform: "uppercase", fontSize: 12, boxShadow: "0 12px 30px -10px rgba(27,25,75,0.45)" }}
+            className="flex items-center justify-center gap-2 rounded-full"
+            style={{ width: "100%", background: "#1B194B", color: "#fbf6e8", padding: "16px 14px", letterSpacing: "0.1em", textTransform: "uppercase", fontSize: 12, boxShadow: "0 12px 30px -10px rgba(27,25,75,0.45)", whiteSpace: "nowrap" }}
           >
             <UserPlus size={16} /> Save to Contacts
           </a>
@@ -127,6 +127,18 @@ export default function DigitalCard() {
             <QuickIcon href={ex.email ? `mailto:${ex.email}` : null} label="Email" testid="qa-email"><Mail size={20} /></QuickIcon>
             <QuickIcon href={ex.shop_maps_link || ex.maps_link || null} target="_blank" label="Map" testid="qa-map"><MapPin size={20} /></QuickIcon>
           </div>
+
+          {/* Social — moved up so visitors discover socials immediately */}
+          {(ex.instagram || ex.facebook || ex.linkedin || ex.website) && (
+            <Section label="Follow">
+              <div className="flex flex-wrap gap-2" data-testid="social-row">
+                <SocialPill icon={<Instagram size={16} />} url={ex.instagram} label="Instagram" />
+                <SocialPill icon={<Facebook size={16} />} url={ex.facebook} label="Facebook" />
+                <SocialPill icon={<Linkedin size={16} />} url={ex.linkedin} label="LinkedIn" />
+                <SocialPill icon={<Globe size={16} />} url={ex.website} label="Website" />
+              </div>
+            </Section>
+          )}
 
           {/* About */}
           {ex.description && (
@@ -193,18 +205,6 @@ export default function DigitalCard() {
                   <MapPin size={14} /> Open in Maps
                 </a>
               )}
-            </Section>
-          )}
-
-          {/* Social */}
-          {(ex.instagram || ex.facebook || ex.linkedin || ex.website) && (
-            <Section label="Follow">
-              <div className="flex flex-wrap gap-2" data-testid="social-row">
-                <SocialPill icon={<Instagram size={16} />} url={ex.instagram} label="Instagram" />
-                <SocialPill icon={<Facebook size={16} />} url={ex.facebook} label="Facebook" />
-                <SocialPill icon={<Linkedin size={16} />} url={ex.linkedin} label="LinkedIn" />
-                <SocialPill icon={<Globe size={16} />} url={ex.website} label="Website" />
-              </div>
             </Section>
           )}
 
@@ -289,6 +289,7 @@ function SocialPill({ icon, url, label }) {
 
 function Carousel({ items }) {
   const [active, setActive] = useState(0);
+  const [lightboxIdx, setLightboxIdx] = useState(-1);
   const ref = React.useRef(null);
   const scrollTo = (i) => {
     const el = ref.current;
@@ -296,6 +297,9 @@ function Carousel({ items }) {
     const child = el.children[i];
     if (child) el.scrollTo({ left: child.offsetLeft - el.offsetLeft, behavior: "smooth" });
     setActive(i);
+  };
+  const onCardKey = (e, i) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setLightboxIdx(i); }
   };
   return (
     <div className="relative">
@@ -305,7 +309,16 @@ function Carousel({ items }) {
         {items.map((g, i) => (
           <div key={i} className="card-luxe shrink-0" style={{ width: 220, scrollSnapAlign: "start", borderRadius: 16, overflow: "hidden" }}>
             {g.image_url ? (
-              <img src={abs(g.image_url)} alt={g.name || ""} style={{ width: "100%", height: 220, objectFit: "cover", display: "block" }} />
+              <button
+                type="button"
+                onClick={() => setLightboxIdx(i)}
+                onKeyDown={(e) => onCardKey(e, i)}
+                aria-label={`Open ${g.name || "product"} image`}
+                data-testid={`gallery-img-${i}`}
+                style={{ all: "unset", display: "block", cursor: "zoom-in", width: "100%" }}
+              >
+                <img src={abs(g.image_url)} alt={g.name || ""} style={{ width: "100%", height: 220, objectFit: "cover", display: "block" }} />
+              </button>
             ) : (
               <div style={{ width: "100%", height: 220, background: "#fbf6e8", display: "flex", alignItems: "center", justifyContent: "center", color: "#b2873d", fontFamily: "Cormorant Garamond, serif", fontSize: 28 }}>
                 {(g.name || "·")[0]}
@@ -333,6 +346,80 @@ function Carousel({ items }) {
           </div>
         </div>
       )}
+      {lightboxIdx >= 0 && (
+        <Lightbox items={items} index={lightboxIdx} onClose={() => setLightboxIdx(-1)} onChange={setLightboxIdx} />
+      )}
+    </div>
+  );
+}
+
+function Lightbox({ items, index, onClose, onChange }) {
+  const item = items[index];
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") onChange(Math.min(items.length - 1, index + 1));
+      if (e.key === "ArrowLeft") onChange(Math.max(0, index - 1));
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [index, items.length, onClose, onChange]);
+  if (!item) return null;
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      data-testid="gallery-lightbox"
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,14,40,0.92)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        data-testid="lightbox-close"
+        aria-label="Close"
+        style={{ position: "absolute", top: 18, right: 18, color: "#fbf6e8", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(216,188,132,0.4)", borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, lineHeight: 1 }}
+      >×</button>
+
+      {items.length > 1 && index > 0 && (
+        <button onClick={(e) => { e.stopPropagation(); onChange(index - 1); }} aria-label="Previous"
+          style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#fbf6e8", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(216,188,132,0.4)", borderRadius: 999, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <ChevronLeft size={22} />
+        </button>
+      )}
+      {items.length > 1 && index < items.length - 1 && (
+        <button onClick={(e) => { e.stopPropagation(); onChange(index + 1); }} aria-label="Next"
+          style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#fbf6e8", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(216,188,132,0.4)", borderRadius: 999, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <ChevronRight size={22} />
+        </button>
+      )}
+
+      <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+        <img
+          src={abs(item.image_url)}
+          alt={item.name || ""}
+          data-testid="lightbox-image"
+          style={{ maxWidth: "100%", maxHeight: "78vh", objectFit: "contain", borderRadius: 10, boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+        />
+        {(item.name || item.description) && (
+          <div style={{ color: "#fbf6e8", textAlign: "center", maxWidth: 520 }}>
+            {item.name && <div className="font-serif-display" style={{ fontSize: 22, lineHeight: 1.2 }}>{item.name}</div>}
+            {item.description && <div style={{ fontSize: 13, marginTop: 6, color: "#e7dfc6", lineHeight: 1.5 }}>{item.description}</div>}
+            <div style={{ fontSize: 11, marginTop: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: "#b2873d" }}>
+              {index + 1} / {items.length}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
