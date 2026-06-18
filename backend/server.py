@@ -100,6 +100,11 @@ async def require_exhibitor(user: dict = Depends(get_current)) -> dict:
         raise HTTPException(status_code=403, detail="Exhibitor only")
     return user
 
+async def require_gate_or_admin(user: dict = Depends(get_current)) -> dict:
+    if user.get("role") not in ("admin", "gate"):
+        raise HTTPException(status_code=403, detail="Gate or admin only")
+    return user
+
 # ---------- Models ----------
 class LoginIn(BaseModel):
     email: Optional[EmailStr] = None
@@ -242,6 +247,7 @@ class EventSettingsIn(BaseModel):
     bizchat_template_exhibitor: Optional[str] = None
     bizchat_template_language: Optional[str] = None
     bizchat_from_phone_id: Optional[str] = None
+    gate_code: Optional[str] = None
 
 # ---------- Sanitize helpers ----------
 EXHIBITOR_PUBLIC_FIELDS = {
@@ -310,10 +316,35 @@ async def me(user: dict = Depends(get_current)):
     if user["role"] == "admin":
         a = await db.admins.find_one({"id": user["sub"]}, {"_id": 0, "password_hash": 0})
         return {"role": "admin", "user": a}
+    if user["role"] == "gate":
+        return {"role": "gate", "user": {"id": "gate", "name": "Gate Staff"}}
     ex = await db.exhibitors.find_one({"id": user["sub"]}, {"_id": 0, "password_hash": 0})
     if not ex:
         raise HTTPException(status_code=401, detail="Not found")
     return {"role": "exhibitor", "user": public_exhibitor(ex)}
+
+# ---------- Gate Staff Login (QR scanner only) ----------
+class GateLoginIn(BaseModel):
+    code: str
+
+@api.post("/gate/login")
+async def gate_login(data: GateLoginIn):
+    s = await get_settings()
+    expected = (s.get("gate_code") or "").strip()
+    given = (data.code or "").strip()
+    if not expected:
+        raise HTTPException(status_code=400, detail="Gate code not configured. Ask admin to set it in Settings.")
+    if not secrets.compare_digest(expected, given):
+        raise HTTPException(status_code=401, detail="Invalid gate code")
+    # Long-lived token (30 days) so a single login covers full event days
+    payload = {
+        "sub": "gate",
+        "role": "gate",
+        "exp": datetime.now(timezone.utc) + timedelta(days=30),
+        "iat": datetime.now(timezone.utc),
+    }
+    token = jwt.encode(payload, jwt_secret(), algorithm=JWT_ALGORITHM)
+    return {"token": token, "user": {"role": "gate", "name": "Gate Staff"}}
 
 # ---------- File Upload ----------
 @api.post("/upload")
@@ -710,7 +741,7 @@ async def visitor_qr_image(qr_id: str, plain: int = 0):
 
 # ---------- Attendance ----------
 @api.post("/attendance/scan")
-async def attendance_scan(payload: dict, _: dict = Depends(require_admin)):
+async def attendance_scan(payload: dict, _: dict = Depends(require_gate_or_admin)):
     qr_id = payload.get("qr_id", "").strip()
     # Allow JSON QR payloads too
     if qr_id.startswith("{"):
@@ -729,7 +760,7 @@ async def attendance_scan(payload: dict, _: dict = Depends(require_admin)):
     return {"already": False, "visitor": v}
 
 @api.post("/attendance/manual")
-async def attendance_manual(payload: dict, _: dict = Depends(require_admin)):
+async def attendance_manual(payload: dict, _: dict = Depends(require_gate_or_admin)):
     mobile = normalize_mobile(payload.get("mobile", ""))
     v = await db.visitors.find_one({"mobile": mobile}, {"_id": 0})
     if not v:
@@ -742,7 +773,7 @@ async def attendance_manual(payload: dict, _: dict = Depends(require_admin)):
     return {"already": False, "visitor": v}
 
 @api.get("/attendance/stats")
-async def attendance_stats(_: dict = Depends(require_admin)):
+async def attendance_stats(_: dict = Depends(require_gate_or_admin)):
     total = await db.visitors.count_documents({})
     present = await db.visitors.count_documents({"attended": True})
     return {"total": total, "present": present, "pending": total - present}

@@ -17,6 +17,7 @@ import Attendance from "@/pages/Attendance";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
 import DigitalCard from "@/pages/DigitalCard";
+import GateLogin from "@/pages/GateLogin";
 import SiteFooter from "@/components/SiteFooter";
 
 function ProtectedExhibitor({ children }) {
@@ -33,9 +34,16 @@ function ProtectedAdmin({ children }) {
   return children;
 }
 
+function ProtectedGateOrAdmin({ children }) {
+  const { ready, role } = useAuth();
+  if (!ready) return null;
+  if (role !== "admin" && role !== "gate") return <Navigate to="/gate/login" replace />;
+  return children;
+}
+
 function Shell() {
   const { pathname } = useLocation();
-  const hideNav = pathname.startsWith("/admin") || pathname.startsWith("/attendance") || pathname.startsWith("/c/");
+  const hideNav = pathname.startsWith("/admin") || pathname.startsWith("/attendance") || pathname.startsWith("/gate") || pathname.startsWith("/c/");
   return (
     <div className="App">
       <Routes>
@@ -48,6 +56,8 @@ function Shell() {
         <Route path="/exhibitor/dashboard" element={<ProtectedExhibitor><ExhibitorDashboard /></ProtectedExhibitor>} />
         <Route path="/roster" element={<Roster />} />
         <Route path="/attendance" element={<ProtectedAdmin><Attendance /></ProtectedAdmin>} />
+        <Route path="/gate/login" element={<GateLogin />} />
+        <Route path="/gate" element={<ProtectedGateOrAdmin><Attendance /></ProtectedGateOrAdmin>} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/*" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
         <Route path="/c/:slug" element={<DigitalCard />} />

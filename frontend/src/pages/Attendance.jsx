@@ -2,22 +2,26 @@ import React, { useEffect, useRef, useState } from "react";
 import TopBar from "../components/TopBar";
 import api, { formatError } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { LogOut } from "lucide-react";
 
 export default function Attendance() {
-  const { role } = useAuth();
+  const { role, logout } = useAuth();
+  const nav = useNavigate();
   const [last, setLast] = useState(null);
   const [manual, setManual] = useState("");
   const [stats, setStats] = useState({ total: 0, present: 0, pending: 0 });
   const scannerRef = useRef(null);
   const html5Ref = useRef(null);
+  const isStaff = role === "admin" || role === "gate";
 
   const loadStats = () => api.get("/attendance/stats").then((r) => setStats(r.data)).catch(() => {});
 
-  useEffect(() => { loadStats(); }, []);
+  useEffect(() => { if (isStaff) loadStats(); }, [isStaff]);
 
   useEffect(() => {
-    if (role !== "admin") return;
+    if (!isStaff) return;
     let mounted = true;
     (async () => {
       const { Html5Qrcode } = await import("html5-qrcode");
@@ -48,7 +52,7 @@ export default function Attendance() {
       mounted = false;
       try { html5Ref.current?.stop().then(() => html5Ref.current?.clear()); } catch (err) { console.debug("Scanner teardown:", err); }
     };
-  }, [role]);
+  }, [isStaff]);
 
   const manualMark = async (e) => {
     e.preventDefault();
@@ -60,7 +64,12 @@ export default function Attendance() {
     } catch (err) { toast.error(formatError(err.response?.data?.detail) || "Not found"); }
   };
 
-  if (role !== "admin") return (
+  const onGateLogout = () => {
+    logout();
+    nav("/gate/login", { replace: true });
+  };
+
+  if (!isStaff) return (
     <div className="page-pad"><TopBar back/><div className="max-w-xl mx-auto p-6 text-center">
       <div className="eyebrow">Restricted</div>
       <p className="mt-3 font-serif-display text-2xl">Attendance is for event staff only.</p>
@@ -69,7 +78,19 @@ export default function Attendance() {
 
   return (
     <div className="page-pad" data-testid="attendance-page">
-      <TopBar back title="Attendance" />
+      {role === "admin" ? (
+        <TopBar back title="Attendance" />
+      ) : (
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(178,135,61,0.2)" }}>
+          <div>
+            <div className="eyebrow" style={{ fontSize: 10 }}>Gate Scanner</div>
+            <div className="font-serif-display text-xl" style={{ color: "#1B194B" }}>Rama Bazaar 1.0</div>
+          </div>
+          <button onClick={onGateLogout} data-testid="gate-logout-btn" className="inline-flex items-center gap-1.5 text-xs uppercase tracking-luxe" style={{ color: "#9a4444" }}>
+            <LogOut size={14} /> Logout
+          </button>
+        </div>
+      )}
       <div className="max-w-xl mx-auto px-6 pt-6 pb-16">
         <div className="grid grid-cols-3 gap-3">
           <Stat label="Total" value={stats.total}/>

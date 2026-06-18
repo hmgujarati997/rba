@@ -425,6 +425,22 @@ function Settings() {
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.exhibitor_registration_open} onChange={(e) => setS({...s, exhibitor_registration_open: e.target.checked})}/> Exhibitor Registration Open</label>
         </div>
 
+        <div className="sm:col-span-2 eyebrow mt-4" style={{ color: "#b2873d" }}>Gate Scanner Access</div>
+        <div className="sm:col-span-2">
+          <label className="label-luxe">Gate Code</label>
+          <input
+            type="text"
+            className="input-luxe"
+            placeholder="e.g. RB2026-GATE"
+            value={s.gate_code || ""}
+            onChange={(e) => setS({...s, gate_code: e.target.value})}
+            data-testid="gate-code-field"
+          />
+          <p className="text-xs mt-1" style={{ color: "#7a7868" }}>
+            Share this code with door staff so they can sign in at <span style={{ color: "#1B194B" }}>/gate/login</span> to scan visitor QR codes. They get scanner-only access — no admin powers.
+          </p>
+        </div>
+
         <div className="sm:col-span-2 eyebrow mt-4" style={{ color: "#b2873d" }}>BizChat WhatsApp API · Meta-approved templates</div>
         {F("bizchat_vendor_uid", "Vendor UID")}
         {F("bizchat_token", "API Token")}
