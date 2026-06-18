@@ -4,7 +4,7 @@ import TopBar from "../components/TopBar";
 import api, { formatError, API, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { LogOut } from "lucide-react";
+import { LogOut, Download } from "lucide-react";
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
 
@@ -176,7 +176,32 @@ function Exhibitors() {
     <div>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="font-serif-display text-3xl">Exhibitors</h2>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <a
+            href={`${API}/admin/exhibitors/export.zip`}
+            data-testid="exhibitor-bundle-download"
+            onClick={(e) => {
+              e.preventDefault();
+              const url = `${API}/admin/exhibitors/export.zip?base=${encodeURIComponent(window.location.origin)}`;
+              fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` } })
+                .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
+                .then((b) => {
+                  const a = document.createElement("a");
+                  const u = URL.createObjectURL(b);
+                  a.href = u;
+                  a.download = "rama-bazaar-exhibitors.zip";
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 200);
+                  toast.success("Bundle downloaded");
+                })
+                .catch(() => toast.error("Download failed"));
+            }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs uppercase tracking-luxe"
+            style={{ background: "#1B194B", color: "#fbf6e8", border: "1px solid #1B194B" }}
+          >
+            <Download size={12} /> Download bundle (.zip)
+          </a>
           {[
             ["all", "All"],
             ["unpaid", "Unpaid"],

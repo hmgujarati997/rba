@@ -1229,6 +1229,148 @@ async def admin_delete_visitor(vid: str, _: dict = Depends(require_admin)):
     await db.visitors.delete_one({"id": vid})
     return {"ok": True}
 
+# ---------- Admin: Exhibitors Bundle Export (logos + photos + Excel sheet) ----------
+@api.get("/admin/exhibitors/export.zip")
+async def admin_export_exhibitors_bundle(request: Request, base: Optional[str] = None, _: dict = Depends(require_admin)):
+    import zipfile
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    items = await db.exhibitors.find({}, {"_id": 0, "password_hash": 0}).sort("business_name", 1).to_list(50000)
+
+    # URL precedence: explicit ?base= → PUBLIC_BASE_URL env → Origin/X-Forwarded-Host → request.url
+    base = (
+        (base or "").rstrip("/")
+        or os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+        or (request.headers.get("origin") or "").rstrip("/")
+        or (f"https://{request.headers.get('x-forwarded-host')}" if request.headers.get("x-forwarded-host") else "")
+        or f"{request.url.scheme}://{request.url.netloc}"
+    )
+
+    def _resolve_upload_path(url: str):
+        """Map an /api/uploads/... or /uploads/... URL to a local file path under UPLOAD_DIR."""
+        if not url:
+            return None
+        # strip query string + leading slashes
+        u = url.split("?", 1)[0]
+        for prefix in ("/api/uploads/", "/uploads/"):
+            if u.startswith(prefix):
+                fname = u[len(prefix):]
+                p = UPLOAD_DIR / fname
+                if p.exists() and p.is_file():
+                    return p
+        return None
+
+    def _safe(name: str) -> str:
+        return "".join(c if (c.isalnum() or c in "-_") else "_" for c in (name or "").strip())[:60] or "exhibitor"
+
+    # Build Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Exhibitors"
+    headers = [
+        "Business Name", "Member Name", "Position", "Category", "Mobile", "WhatsApp",
+        "Email", "Website", "Instagram", "Facebook", "LinkedIn",
+        "Slug", "Digital Card URL", "Approved", "Paid",
+        "Logo File", "Profile Photo File", "Description",
+    ]
+    ws.append(headers)
+    header_fill = PatternFill("solid", fgColor="1B194B")
+    header_font = Font(color="FBF6E8", bold=True, size=11)
+    for col_idx in range(1, len(headers) + 1):
+        c = ws.cell(row=1, column=col_idx)
+        c.fill = header_fill
+        c.font = header_font
+        c.alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[1].height = 26
+    widths = [28, 22, 18, 18, 14, 14, 26, 28, 22, 22, 22, 10, 56, 10, 8, 28, 28, 50]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[chr(64 + i) if i <= 26 else ("A" + chr(64 + i - 26))].width = w
+
+    # Will write ZIP to memory
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for ex in items:
+            slug = ex.get("slug") or ""
+            biz = _safe(ex.get("business_name") or ex.get("member_name") or slug or "exhibitor")
+            digi_url = f"{base}/c/{slug}" if slug else ""
+
+            # Copy logo
+            logo_filename = ""
+            lp = _resolve_upload_path(ex.get("logo_url") or "")
+            if lp:
+                ext = lp.suffix.lower().lstrip(".")
+                logo_filename = f"logos/{biz}-{slug}-logo.{ext}"
+                try:
+                    zf.write(str(lp), logo_filename)
+                except Exception:
+                    logo_filename = ""
+
+            # Copy profile photo
+            photo_filename = ""
+            pp = _resolve_upload_path(ex.get("profile_photo_url") or "")
+            if pp:
+                ext = pp.suffix.lower().lstrip(".")
+                photo_filename = f"photos/{biz}-{slug}-photo.{ext}"
+                try:
+                    zf.write(str(pp), photo_filename)
+                except Exception:
+                    photo_filename = ""
+
+            ws.append([
+                ex.get("business_name") or "",
+                ex.get("member_name") or "",
+                ex.get("position") or "",
+                ex.get("category") or "",
+                ex.get("mobile") or "",
+                ex.get("whatsapp") or "",
+                ex.get("email") or "",
+                ex.get("website") or "",
+                ex.get("instagram") or "",
+                ex.get("facebook") or "",
+                ex.get("linkedin") or "",
+                slug,
+                digi_url,
+                "Yes" if ex.get("approved") else "No",
+                "Yes" if ex.get("paid") else "No",
+                logo_filename,
+                photo_filename,
+                ex.get("description") or "",
+            ])
+
+        # Wrap text in description col, freeze header
+        ws.freeze_panes = "A2"
+        last_col_letter = "R"
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+            for cell in row:
+                cell.alignment = Alignment(vertical="top", wrap_text=(cell.column_letter == last_col_letter))
+
+        # Save xlsx into the ZIP
+        xbuf = io.BytesIO()
+        wb.save(xbuf)
+        xbuf.seek(0)
+        zf.writestr("exhibitors.xlsx", xbuf.getvalue())
+
+        # Small README
+        readme = (
+            "Rama Bazaar 1.0 — Exhibitors Bundle\n"
+            f"Generated: {now_iso()}\n"
+            f"Total exhibitors: {len(items)}\n\n"
+            "Contents:\n"
+            "  /exhibitors.xlsx   — Master sheet (all fields + digital card URL per exhibitor)\n"
+            "  /logos/            — Each exhibitor's logo (named: <business>-<slug>-logo.<ext>)\n"
+            "  /photos/           — Each exhibitor's profile photo (named: <business>-<slug>-photo.<ext>)\n"
+            "\nDigital card URLs follow the pattern: " + base + "/c/<slug>\n"
+        )
+        zf.writestr("README.txt", readme)
+
+    zbuf.seek(0)
+    return StreamingResponse(
+        zbuf,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="rama-bazaar-exhibitors.zip"'},
+    )
+
 # ---------- Admin: Sponsor Ads ----------
 @api.get("/admin/sponsor-ads")
 async def admin_list_ads(_: dict = Depends(require_admin)):
