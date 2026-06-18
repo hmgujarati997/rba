@@ -47,9 +47,14 @@ Build a premium mobile-first PWA for "Rama Bazaar 1.0", an exclusive business ex
 - Admin: `admin@admin.com` / `Admin@123`
 - Demo Exhibitor: mobile `9876543210` / password `Demo@123` (slug `4omid3` → `/c/4omid3`)
 
+✅ Exhibitor Print Badge ZIP (3.5"×5" PNG, 300 DPI) — redesigned for premium aesthetic with 5-zone layout: sponsor strip, hero Rama Bazaar lockup, exhibitor crest, name/role/business/phone block, footer endorsement (Feb 2026)
+✅ Admin Bundle Export ZIP (logos/photos/Excel with digital-card links) via `openpyxl`
+✅ Gate-keeper login (`/gate/login`) for door staff, restricted access
+✅ Camera scanner upgraded (dynamic scan box, 12fps, image-upload fallback)
+
 ## Prioritized Backlog
 ### P1 (next)
-- Refactor `server.py` (now ~1500 lines) into routers: auth, exhibitors, digital_card, visitors, sponsors, admin, social_post
+- Refactor `server.py` (now ~1900 lines) into routers: auth, exhibitors, digital_card, visitors, sponsors, admin, social_post, image_renderer
 - Admin can paste BizChat `vendor_uid` + `token` in Settings tab → real WhatsApp QR delivery on visitor registration
 - Branded PWA icons (192/512) generated from logo
 

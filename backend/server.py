@@ -1395,64 +1395,43 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         bg.paste(im, (cx - new[0] // 2, cy - new[1] // 2), im)
         return new
 
-    # ------- Outer gold border -------
-    inset = 22
-    draw.rounded_rectangle(
-        [(inset, inset), (W - inset, H - inset)],
-        radius=24,
-        outline="#d8bc84",
-        width=2,
-    )
-    # Inner thin hairline for the layered foil look
-    draw.rounded_rectangle(
-        [(inset + 10, inset + 10), (W - inset - 10, H - inset - 10)],
-        radius=18,
-        outline="#e7d2a6",
-        width=1,
-    )
+    # ------- Outer foil frame (single subtle layered border) -------
+    draw.rounded_rectangle([(22, 22), (W - 22, H - 22)], radius=24,
+                           outline="#d8bc84", width=2)
+    draw.rounded_rectangle([(32, 32), (W - 32, H - 32)], radius=18,
+                           outline="#e7d2a6", width=1)
 
-    # ------- TOP: POWERED BY + Coco Salons (sponsor header) -------
-    powered_f = _cinzel(20)
-    draw.text((W // 2, 55), "POWERED BY",
-              font=powered_f, fill="#b2873d", anchor="mt")
-    _paste(brand / "coco-salons.jpg", max_w=300, max_h=64, cx=W // 2, cy=125)
+    # ============ ZONE A · Sponsor strip ============
+    draw.text((W // 2, 70), "POWERED BY",
+              font=_cinzel(20), fill="#b2873d", anchor="mt")
+    _paste(brand / "coco-salons.jpg", max_w=280, max_h=58, cx=W // 2, cy=142)
+    # Single hairline divider closes the sponsor zone
+    draw.line([(180, 200), (W - 180, 200)], fill="#d8bc84", width=1)
 
-    # Thin gold hairline + diamond ornament dividing sponsor from brand zone
-    sep_y = 178
-    draw.line([(220, sep_y), (W - 220, sep_y)], fill="#e7d2a6", width=1)
-    cx_sep = W // 2
-    pts_sep = [(cx_sep, sep_y - 5), (cx_sep + 5, sep_y), (cx_sep, sep_y + 5), (cx_sep - 5, sep_y)]
-    draw.polygon(pts_sep, fill="#b2873d")
+    # ============ ZONE B · Hero brand lockup ============
+    # Centered, airy, the focal mark of the entire badge
+    _paste(brand / "rama-bazaar-lockup.png", max_w=540, max_h=400,
+           cx=W // 2, cy=410)
 
-    # ------- Brand corners + centered hero lockup -------
-    # Top-left: LVB Rama ink lockup (small, anchored in the corner)
-    _paste(brand / "lvb-rama-ink.png", max_w=160, max_h=52, cx=150, cy=240)
-    # CENTER: Full Rama Bazaar lockup (BIG hero brand)
-    _paste(brand / "rama-bazaar-lockup.png", max_w=420, max_h=420, cx=W // 2, cy=400)
-
-    # Gold divider with notch ornaments
-    div_y = 640
-    draw.line([(180, div_y), (W - 180, div_y)], fill="#d8bc84", width=1)
-    cx_div = W // 2
-    pts = [(cx_div, div_y - 7), (cx_div + 7, div_y), (cx_div, div_y + 7), (cx_div - 7, div_y)]
+    # Delicate ornament between the hero and the crest
+    orn_y = 620
+    draw.line([(W // 2 - 140, orn_y), (W // 2 - 22, orn_y)],
+              fill="#d8bc84", width=1)
+    draw.line([(W // 2 + 22, orn_y), (W // 2 + 140, orn_y)],
+              fill="#d8bc84", width=1)
+    pts = [(W // 2, orn_y - 6), (W // 2 + 6, orn_y),
+           (W // 2, orn_y + 6), (W // 2 - 6, orn_y)]
     draw.polygon(pts, fill="#b2873d")
 
-    # ------- Company logo crest (normalised cream chip) -------
-    crest_size = 300
+    # ============ ZONE C · Exhibitor crest ============
+    crest_size = 270
     crest_x = (W - crest_size) // 2
-    crest_y = 680
-    # outer shadow band
-    draw.rounded_rectangle(
-        [(crest_x - 6, crest_y - 6), (crest_x + crest_size + 6, crest_y + crest_size + 6)],
-        radius=32, fill=None, outline="#e7d2a6", width=1,
-    )
-    # crest panel
+    crest_y = 650
     draw.rounded_rectangle(
         [(crest_x, crest_y), (crest_x + crest_size, crest_y + crest_size)],
-        radius=28, fill="#fbf8f0", outline="#d8bc84", width=2,
+        radius=26, fill="#fbf8f0", outline="#d8bc84", width=2,
     )
 
-    # Paste exhibitor logo inside the chip, contained
     logo_path = None
     logo_url = ex.get("logo_url") or ""
     if logo_url:
@@ -1464,55 +1443,60 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                     logo_path = p
                     break
     if logo_path:
-        _paste(logo_path, max_w=crest_size - 70, max_h=crest_size - 70,
+        _paste(logo_path, max_w=crest_size - 64, max_h=crest_size - 64,
                cx=crest_x + crest_size // 2, cy=crest_y + crest_size // 2)
     else:
-        # Fallback monogram initial
-        initial_f = _truetype(200, italic=True)
+        initial_f = _truetype(180, italic=True)
         initial = (ex.get("business_name") or ex.get("member_name") or "R").strip()[:1].upper()
-        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 10),
+        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 8),
                   initial, font=initial_f, fill="#b2873d", anchor="mm")
 
-    # ------- Name lockup -------
-    text_top = crest_y + crest_size + 60
+    # ============ ZONE D · Exhibitor identity ============
+    text_top = crest_y + crest_size + 52  # ≈ 972
 
-    # Member name in italic Playfair (auto-fit width)
+    # Name — italic Playfair, navy
     member = (ex.get("member_name") or "").strip() or "Exhibitor"
-    name_f, name_w, name_h = _fit_text(draw, member[:34], max_w=W - 220, max_h=110,
-                                       start_size=82, min_size=48, italic=True)
-    draw.text((W // 2, text_top), member[:34], font=name_f, fill="#1B194B", anchor="mt")
-    name_block_h = name_h + 14
+    name_f, _nw, name_h = _fit_text(draw, member[:34], max_w=W - 220, max_h=98,
+                                    start_size=76, min_size=46, italic=True)
+    draw.text((W // 2, text_top), member[:34], font=name_f,
+              fill="#1B194B", anchor="mt")
+    next_y = text_top + name_h + 18
 
-    # Position (subtle tracked caps)
+    # Position — tracked caps, muted
     position = (ex.get("position") or "").strip()
-    next_y = text_top + name_block_h
     if position:
-        pos_f = _cinzel(22)
+        pos_f = _cinzel(20)
         draw.text((W // 2, next_y), position[:42].upper(),
                   font=pos_f, fill="#7a7868", anchor="mt")
-        next_y += 42
+        next_y += 38
 
-    # Business name (Cinzel caps in gold)
+    # Business name — Cinzel caps in gold, auto-fit width
     biz = (ex.get("business_name") or "").strip()
     if biz:
-        biz_f, biz_w, biz_h = _fit_text(draw, biz[:36], max_w=W - 220, max_h=70,
-                                        start_size=46, min_size=26, bold=True)
-        biz_font = _cinzel(biz_f.size if hasattr(biz_f, "size") else 36)
-        draw.text((W // 2, next_y + 22), biz[:36],
+        biz_size = 42
+        while biz_size >= 24:
+            f = _cinzel(biz_size)
+            tb = draw.textbbox((0, 0), biz[:36], font=f, anchor="lt")
+            if (tb[2] - tb[0]) <= (W - 220):
+                break
+            biz_size -= 3
+        biz_font = _cinzel(biz_size)
+        draw.text((W // 2, next_y + 6), biz[:36],
                   font=biz_font, fill="#b2873d", anchor="mt")
-        next_y += biz_h + 42
+        bb = draw.textbbox((0, 0), biz[:36], font=biz_font, anchor="lt")
+        next_y += (bb[3] - bb[1]) + 28
 
-    # ------- Phone (pill with tracked digits) -------
+    # Phone pill — luxury chip with tracked digits
     phone = (ex.get("whatsapp") or ex.get("mobile") or "").strip()
     if phone:
         phone_disp = f"+91 {phone[:5]} {phone[5:10]}" if phone.isdigit() and len(phone) == 10 else f"+91 {phone}"
-        ph_f = _truetype(36)
+        ph_f = _truetype(32)
         tb = draw.textbbox((0, 0), phone_disp, font=ph_f, anchor="lt")
         ph_w = tb[2] - tb[0]
-        pad_x, pad_y = 30, 14
+        pad_x, pad_y = 28, 12
         pill_w = ph_w + pad_x * 2
         pill_h = (tb[3] - tb[1]) + pad_y * 2
-        pill_y = next_y + 6
+        pill_y = next_y + 4
         pill_x0 = (W - pill_w) // 2
         draw.rounded_rectangle(
             [(pill_x0, pill_y), (pill_x0 + pill_w, pill_y + pill_h)],
@@ -1521,16 +1505,18 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         draw.text((W // 2, pill_y + pill_h // 2),
                   phone_disp, font=ph_f, fill="#1B194B", anchor="mm")
 
-    # ------- Bottom band: gold divider + ref slug only -------
-    foot_y = H - 90
-    draw.line([(180, foot_y), (W - 180, foot_y)], fill="#d8bc84", width=1)
-    pts2 = [(W // 2, foot_y - 6), (W // 2 + 6, foot_y), (W // 2, foot_y + 6), (W // 2 - 6, foot_y)]
-    draw.polygon(pts2, fill="#b2873d")
-
-    sub_f = _truetype(18, italic=True)
+    # ============ ZONE E · Footer endorsement ============
+    foot_top = H - 170
+    draw.line([(180, foot_top), (W - 180, foot_top)], fill="#d8bc84", width=1)
+    _paste(brand / "lvb-rama-ink.png", max_w=180, max_h=50,
+           cx=W // 2, cy=foot_top + 48)
+    draw.text((W // 2, foot_top + 88), "AN LVB RAMA INITIATIVE",
+              font=_cinzel(16), fill="#7a7868", anchor="mt")
     slug = ex.get("slug") or ""
-    sub = f"Exhibitor Badge · Ref {slug.upper()}" if slug else "Exhibitor Badge"
-    draw.text((W // 2, foot_y + 22), sub, font=sub_f, fill="#7a7868", anchor="mt")
+    if slug:
+        sub_f = _truetype(16, italic=True)
+        draw.text((W // 2, foot_top + 120), f"Ref · {slug.upper()}",
+                  font=sub_f, fill="#9a9685", anchor="mt")
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=True)
