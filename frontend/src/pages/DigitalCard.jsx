@@ -110,6 +110,41 @@ export default function DigitalCard() {
       {/* MAIN CARD */}
       <div className="px-5 -mt-10 pb-12" style={{ position: "relative", zIndex: 2 }}>
         <div className="max-w-md mx-auto card-luxe p-6" style={{ borderRadius: 22, boxShadow: "0 24px 60px -28px rgba(27,25,75,0.32)", background: "#ffffff" }}>
+          {/* Company crest — normalised cream chip so any logo (any aspect / any bg colour) looks premium */}
+          {ex.logo_url && (
+            <div
+              data-testid="company-crest"
+              style={{
+                marginTop: -54,
+                marginBottom: 18,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: 92,
+                  height: 92,
+                  background: "#fbf8f0",
+                  border: "1px solid #d8bc84",
+                  borderRadius: 18,
+                  padding: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow:
+                    "0 14px 32px -10px rgba(27,25,75,0.38), inset 0 1px 0 rgba(255,255,255,0.7)",
+                }}
+              >
+                <img
+                  src={abs(ex.logo_url)}
+                  alt={`${ex.business_name || "Company"} logo`}
+                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Save to contacts — hero CTA */}
           <a
             href={`${BACKEND_URL}/api/c/${slug}/vcard`}
