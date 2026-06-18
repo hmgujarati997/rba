@@ -1411,29 +1411,24 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         width=1,
     )
 
-    # ------- Brand corners -------
-    # Top-left: LVB Rama ink lockup
-    _paste(brand / "lvb-rama-ink.png", max_w=240, max_h=78, cx=190, cy=130)
-    # Top-right: Full Rama Bazaar lockup (RB + RAMA + BAZAAR 1.0 + tagline)
-    _paste(brand / "rama-bazaar-lockup.png", max_w=240, max_h=240, cx=W - 180, cy=170)
-
-    # ------- Top eyebrow -------
-    eyebrow_f = _cinzel(30)
-    draw.text((W // 2, 310), "EXHIBITOR",
-              font=eyebrow_f, fill="#b2873d", anchor="mt")
+    # ------- Brand corners + centered hero lockup -------
+    # Top-left: LVB Rama ink lockup (small, anchored in the corner)
+    _paste(brand / "lvb-rama-ink.png", max_w=180, max_h=58, cx=160, cy=110)
+    # CENTER: Full Rama Bazaar lockup (hero brand)
+    _paste(brand / "rama-bazaar-lockup.png", max_w=360, max_h=360, cx=W // 2, cy=240)
 
     # Gold divider with notch ornaments
-    div_y = 358
+    div_y = 432
     draw.line([(180, div_y), (W - 180, div_y)], fill="#d8bc84", width=1)
     # diamond ornament center
     cx_div = W // 2
     pts = [(cx_div, div_y - 7), (cx_div + 7, div_y), (cx_div, div_y + 7), (cx_div - 7, div_y)]
     draw.polygon(pts, fill="#b2873d")
 
-    # ------- Company logo crest (normalised cream chip, BIGGER) -------
-    crest_size = 420
+    # ------- Company logo crest (normalised cream chip, BIG) -------
+    crest_size = 380
     crest_x = (W - crest_size) // 2
-    crest_y = 400
+    crest_y = 470
     # outer shadow band
     draw.rounded_rectangle(
         [(crest_x - 6, crest_y - 6), (crest_x + crest_size + 6, crest_y + crest_size + 6)],
@@ -1461,13 +1456,13 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                cx=crest_x + crest_size // 2, cy=crest_y + crest_size // 2)
     else:
         # Fallback monogram initial
-        initial_f = _truetype(220, italic=True)
+        initial_f = _truetype(200, italic=True)
         initial = (ex.get("business_name") or ex.get("member_name") or "R").strip()[:1].upper()
-        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 12),
+        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 10),
                   initial, font=initial_f, fill="#b2873d", anchor="mm")
 
     # ------- Name lockup -------
-    text_top = crest_y + crest_size + 70
+    text_top = crest_y + crest_size + 60
 
     # Member name in italic Playfair (auto-fit width)
     member = (ex.get("member_name") or "").strip() or "Exhibitor"
