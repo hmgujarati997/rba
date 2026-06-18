@@ -1411,24 +1411,36 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         width=1,
     )
 
+    # ------- TOP: POWERED BY + Coco Salons (sponsor header) -------
+    powered_f = _cinzel(20)
+    draw.text((W // 2, 55), "POWERED BY",
+              font=powered_f, fill="#b2873d", anchor="mt")
+    _paste(brand / "coco-salons.jpg", max_w=300, max_h=64, cx=W // 2, cy=125)
+
+    # Thin gold hairline + diamond ornament dividing sponsor from brand zone
+    sep_y = 178
+    draw.line([(220, sep_y), (W - 220, sep_y)], fill="#e7d2a6", width=1)
+    cx_sep = W // 2
+    pts_sep = [(cx_sep, sep_y - 5), (cx_sep + 5, sep_y), (cx_sep, sep_y + 5), (cx_sep - 5, sep_y)]
+    draw.polygon(pts_sep, fill="#b2873d")
+
     # ------- Brand corners + centered hero lockup -------
     # Top-left: LVB Rama ink lockup (small, anchored in the corner)
-    _paste(brand / "lvb-rama-ink.png", max_w=180, max_h=58, cx=160, cy=110)
+    _paste(brand / "lvb-rama-ink.png", max_w=160, max_h=52, cx=150, cy=240)
     # CENTER: Full Rama Bazaar lockup (BIG hero brand)
-    _paste(brand / "rama-bazaar-lockup.png", max_w=520, max_h=520, cx=W // 2, cy=290)
+    _paste(brand / "rama-bazaar-lockup.png", max_w=420, max_h=420, cx=W // 2, cy=400)
 
     # Gold divider with notch ornaments
-    div_y = 560
+    div_y = 640
     draw.line([(180, div_y), (W - 180, div_y)], fill="#d8bc84", width=1)
-    # diamond ornament center
     cx_div = W // 2
     pts = [(cx_div, div_y - 7), (cx_div + 7, div_y), (cx_div, div_y + 7), (cx_div - 7, div_y)]
     draw.polygon(pts, fill="#b2873d")
 
-    # ------- Company logo crest (normalised cream chip, BIG) -------
-    crest_size = 320
+    # ------- Company logo crest (normalised cream chip) -------
+    crest_size = 300
     crest_x = (W - crest_size) // 2
-    crest_y = 600
+    crest_y = 680
     # outer shadow band
     draw.rounded_rectangle(
         [(crest_x - 6, crest_y - 6), (crest_x + crest_size + 6, crest_y + crest_size + 6)],
@@ -1509,18 +1521,8 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         draw.text((W // 2, pill_y + pill_h // 2),
                   phone_disp, font=ph_f, fill="#1B194B", anchor="mm")
 
-    # ------- Bottom band: POWERED BY + Coco Salons + ref slug -------
-    # POWERED BY eyebrow
-    powered_y = H - 200
-    powered_f = _cinzel(20)
-    draw.text((W // 2, powered_y), "POWERED BY",
-              font=powered_f, fill="#b2873d", anchor="mt")
-
-    # Coco Salons logo centered
-    _paste(brand / "coco-salons.jpg", max_w=300, max_h=64, cx=W // 2, cy=powered_y + 70)
-
-    # Bottom gold divider with diamond ornament
-    foot_y = H - 70
+    # ------- Bottom band: gold divider + ref slug only -------
+    foot_y = H - 90
     draw.line([(180, foot_y), (W - 180, foot_y)], fill="#d8bc84", width=1)
     pts2 = [(W // 2, foot_y - 6), (W // 2 + 6, foot_y), (W // 2, foot_y + 6), (W // 2 - 6, foot_y)]
     draw.polygon(pts2, fill="#b2873d")
@@ -1528,7 +1530,7 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
     sub_f = _truetype(18, italic=True)
     slug = ex.get("slug") or ""
     sub = f"Exhibitor Badge · Ref {slug.upper()}" if slug else "Exhibitor Badge"
-    draw.text((W // 2, foot_y + 16), sub, font=sub_f, fill="#7a7868", anchor="mt")
+    draw.text((W // 2, foot_y + 22), sub, font=sub_f, fill="#7a7868", anchor="mt")
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=True)
