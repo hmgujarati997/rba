@@ -182,12 +182,14 @@ function Exhibitors() {
             data-testid="exhibitor-bundle-download"
             onClick={(e) => {
               e.preventDefault();
-              const url = `${API}/admin/exhibitors/export.zip?base=${encodeURIComponent(window.location.origin)}`;
-              fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` } })
-                .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); })
-                .then((b) => {
+              toast.info("Preparing bundle…");
+              api.get("/admin/exhibitors/export.zip", {
+                params: { base: window.location.origin },
+                responseType: "blob",
+              })
+                .then((r) => {
+                  const u = URL.createObjectURL(r.data);
                   const a = document.createElement("a");
-                  const u = URL.createObjectURL(b);
                   a.href = u;
                   a.download = "rama-bazaar-exhibitors.zip";
                   document.body.appendChild(a);
@@ -195,7 +197,7 @@ function Exhibitors() {
                   setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 200);
                   toast.success("Bundle downloaded");
                 })
-                .catch(() => toast.error("Download failed"));
+                .catch((err) => toast.error(formatError(err.response?.data?.detail) || "Download failed"));
             }}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs uppercase tracking-luxe"
             style={{ background: "#1B194B", color: "#fbf6e8", border: "1px solid #1B194B" }}
