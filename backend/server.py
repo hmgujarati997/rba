@@ -140,6 +140,20 @@ class MemberNumberIn(BaseModel):
     mobile: str
     note: Optional[str] = ""
 
+class CatalogueItem(BaseModel):
+    name: Optional[str] = ""
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+
+class Testimonial(BaseModel):
+    name: Optional[str] = ""
+    role: Optional[str] = ""
+    text: Optional[str] = ""
+
+class CustomLink(BaseModel):
+    label: Optional[str] = ""
+    url: Optional[str] = ""
+
 class ExhibitorRegisterIn(BaseModel):
     mobile: str
     password: str
@@ -157,12 +171,18 @@ class ExhibitorRegisterIn(BaseModel):
     website: Optional[str] = ""
     address: Optional[str] = ""
     maps_link: Optional[str] = ""
+    shop_address: Optional[str] = ""
+    shop_maps_link: Optional[str] = ""
     logo_url: Optional[str] = ""
     banner_url: Optional[str] = ""
     profile_photo_url: Optional[str] = ""
     photo_focus_x: Optional[float] = Field(default=0.5, ge=0.0, le=1.0)
     photo_focus_y: Optional[float] = Field(default=0.35, ge=0.0, le=1.0)
     photo_zoom: Optional[float] = Field(default=1.0, ge=1.0, le=3.0)
+    catalogue_pdf_url: Optional[str] = ""
+    catalogue_gallery: Optional[List[CatalogueItem]] = None
+    testimonials: Optional[List[Testimonial]] = None
+    custom_links: Optional[List[CustomLink]] = None
 
 class ExhibitorUpdateIn(BaseModel):
     member_name: Optional[str] = None
@@ -179,12 +199,18 @@ class ExhibitorUpdateIn(BaseModel):
     website: Optional[str] = None
     address: Optional[str] = None
     maps_link: Optional[str] = None
+    shop_address: Optional[str] = None
+    shop_maps_link: Optional[str] = None
     logo_url: Optional[str] = None
     banner_url: Optional[str] = None
     profile_photo_url: Optional[str] = None
     photo_focus_x: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     photo_focus_y: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     photo_zoom: Optional[float] = Field(default=None, ge=1.0, le=3.0)
+    catalogue_pdf_url: Optional[str] = None
+    catalogue_gallery: Optional[List[CatalogueItem]] = None
+    testimonials: Optional[List[Testimonial]] = None
+    custom_links: Optional[List[CustomLink]] = None
 
 class PasswordResetIn(BaseModel):
     new_password: str
@@ -219,12 +245,27 @@ class EventSettingsIn(BaseModel):
 
 # ---------- Sanitize helpers ----------
 EXHIBITOR_PUBLIC_FIELDS = {
-    "id", "mobile", "member_name", "business_name", "category", "position", "whatsapp", "email",
+    "id", "slug", "mobile", "member_name", "business_name", "category", "position", "whatsapp", "email",
     "description", "products_services", "instagram", "facebook", "linkedin", "website",
-    "address", "maps_link", "logo_url", "banner_url", "profile_photo_url",
+    "address", "maps_link", "shop_address", "shop_maps_link",
+    "logo_url", "banner_url", "profile_photo_url",
     "photo_focus_x", "photo_focus_y", "photo_zoom",
+    "catalogue_pdf_url", "catalogue_gallery", "testimonials", "custom_links",
     "approved", "featured", "hidden", "created_at"
 }
+
+# Short, URL-safe IDs for public digital cards (6 chars, ~56 bits of entropy → safe for our scale)
+_SLUG_ALPHABET = "abcdefghijkmnopqrstuvwxyz23456789"  # no 0/1/l/o to keep it readable on print
+def _make_slug(n: int = 6) -> str:
+    return "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(n))
+
+async def _generate_unique_slug() -> str:
+    for _ in range(20):
+        s = _make_slug()
+        if not await db.exhibitors.find_one({"slug": s}, {"_id": 1}):
+            return s
+    # Fallback to longer slug if astronomically unlucky
+    return _make_slug(8)
 
 def public_exhibitor(doc: dict) -> dict:
     return {k: doc.get(k) for k in EXHIBITOR_PUBLIC_FIELDS if k in doc}
@@ -269,16 +310,89 @@ async def me(user: dict = Depends(get_current)):
 @api.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
-    if ext not in {"png", "jpg", "jpeg", "webp", "gif", "mp4", "webm"}:
+    if ext not in {"png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "pdf"}:
         raise HTTPException(status_code=400, detail="Unsupported file type")
     file_id = f"{uuid.uuid4().hex}.{ext}"
     path = UPLOAD_DIR / file_id
     content = await file.read()
-    if len(content) > 8 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 8MB)")
+    max_mb = 20 if ext == "pdf" else 8
+    if len(content) > max_mb * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"File too large (max {max_mb}MB)")
     with open(path, "wb") as f:
         f.write(content)
     return {"url": f"/api/uploads/{file_id}", "filename": file_id}
+
+# ---------- Public Digital Card ----------
+@api.get("/c/{slug}")
+async def public_card(slug: str):
+    ex = await db.exhibitors.find_one({"slug": slug, "hidden": {"$ne": True}}, {"_id": 0, "password_hash": 0})
+    if not ex:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return public_exhibitor(ex)
+
+@api.get("/c/{slug}/vcard")
+async def public_card_vcard(slug: str):
+    ex = await db.exhibitors.find_one({"slug": slug, "hidden": {"$ne": True}}, {"_id": 0, "password_hash": 0})
+    if not ex:
+        raise HTTPException(status_code=404, detail="Card not found")
+    fn = (ex.get("member_name") or "").strip() or (ex.get("business_name") or "Contact")
+    org = (ex.get("business_name") or "").strip()
+    title = (ex.get("position") or "").strip()
+    tel = (ex.get("whatsapp") or ex.get("mobile") or "").strip()
+    email = (ex.get("email") or "").strip()
+    url = (ex.get("website") or "").strip()
+    address = (ex.get("shop_address") or ex.get("address") or "").strip()
+    note = (ex.get("description") or "").strip()
+    socials = []
+    for k in ("instagram", "facebook", "linkedin"):
+        v = (ex.get(k) or "").strip()
+        if v:
+            socials.append(("X-SOCIALPROFILE;TYPE=" + k, v))
+    parts = ["BEGIN:VCARD", "VERSION:3.0", f"FN:{fn}"]
+    if org:
+        parts.append(f"ORG:{org}")
+    if title:
+        parts.append(f"TITLE:{title}")
+    if tel:
+        parts.append(f"TEL;TYPE=CELL,VOICE:+91{tel}" if tel.isdigit() and len(tel) == 10 else f"TEL;TYPE=CELL,VOICE:{tel}")
+    if email:
+        parts.append(f"EMAIL;TYPE=INTERNET:{email}")
+    if url:
+        parts.append(f"URL:{url}")
+    if address:
+        parts.append(f"ADR;TYPE=WORK:;;{address};;;;")
+    if note:
+        parts.append(f"NOTE:{note}")
+    for k, v in socials:
+        parts.append(f"{k}:{v}")
+    parts.append("END:VCARD")
+    body = "\r\n".join(parts) + "\r\n"
+    fname = (org or fn or "contact").replace(" ", "_").lower()
+    return StreamingResponse(
+        io.BytesIO(body.encode("utf-8")),
+        media_type="text/vcard",
+        headers={"Content-Disposition": f'attachment; filename="{fname}.vcf"'},
+    )
+
+@api.get("/c/{slug}/qr.png")
+async def public_card_qr(slug: str, request: Request):
+    ex = await db.exhibitors.find_one({"slug": slug, "hidden": {"$ne": True}}, {"_id": 0, "slug": 1, "business_name": 1})
+    if not ex:
+        raise HTTPException(status_code=404, detail="Card not found")
+    base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/") or f"{request.url.scheme}://{request.url.netloc}"
+    url = f"{base}/c/{slug}"
+    qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=20, border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#1f1f27", back_color="#ffffff").convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    buf.seek(0)
+    fname = (ex.get("business_name") or slug).replace(" ", "_").lower()
+    return StreamingResponse(buf, media_type="image/png", headers={
+        "Content-Disposition": f'inline; filename="{fname}-card-qr.png"',
+        "Cache-Control": "public, max-age=3600",
+    })
 
 # ---------- Public Settings ----------
 async def get_settings() -> dict:
@@ -707,6 +821,7 @@ async def exhibitor_register(data: ExhibitorRegisterIn):
     doc["mobile"] = mobile
     doc["whatsapp"] = normalize_mobile(doc.get("whatsapp", "")) or mobile
     doc["id"] = uuid.uuid4().hex
+    doc["slug"] = await _generate_unique_slug()
     doc["password_hash"] = hash_password(data.password)
     doc.pop("password", None)
     doc["approved"] = False
@@ -1339,6 +1454,7 @@ async def seed_committee():
 @app.on_event("startup")
 async def startup():
     await db.exhibitors.create_index("mobile", unique=True)
+    await db.exhibitors.create_index("slug", unique=True, sparse=True)
     await db.visitors.create_index("mobile", unique=True)
     await db.visitors.create_index("qr_id", unique=True)
     await db.allowed_members.create_index("mobile", unique=True)
@@ -1377,6 +1493,12 @@ async def startup():
     )
     if n.modified_count:
         logger.info(f"Migrated {n.modified_count} sponsor_ads: media_url /uploads/ -> /api/uploads/")
+
+    # Backfill slugs for any pre-existing exhibitors so each has a short public-card URL
+    async for ex in db.exhibitors.find({"$or": [{"slug": {"$exists": False}}, {"slug": ""}, {"slug": None}]}, {"_id": 0, "id": 1}):
+        s = await _generate_unique_slug()
+        await db.exhibitors.update_one({"id": ex["id"]}, {"$set": {"slug": s}})
+        logger.info(f"Assigned slug {s} to exhibitor {ex['id']}")
 
 @app.on_event("shutdown")
 async def shutdown():

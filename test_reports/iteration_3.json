@@ -1,0 +1,36 @@
+{
+  "summary": "Tested the new Digital Visiting Card feature end-to-end. Backend: 13/13 new TestDigitalCard tests pass (slug backfill, public card payload, vCard, QR PNG, PDF upload + accept/reject, PUT new fields, new-registration slug). Overall pytest: 66 passed / 2 failed (both failures are PRE-EXISTING / unrelated to the new feature). Frontend: public card at /c/4omid3 renders perfectly with all 9 required data-testids; brand label, share button, business/member names, save-to-contacts is correct <a href='/api/c/4omid3/vcard'>, footer 'Powered by · Rama Bazaar 1.0'. Invalid slug /c/INVALD shows data-testid='card-not-found'. Bottom-nav AND site-footer are correctly hidden on /c/ routes. Exhibitor dashboard digital-card-manager mounts; all 10 manager data-testids present (card-url-text, copy-card-url, card-qr-img, open-card-btn, download-qr-btn, upload-pdf-input, add-gallery-input, add-testimonial-btn, add-link-btn, dc-save-btn). E2E: 'Add Testimonial' → fill → 'Save Digital Card' persists and immediately renders on /c/4omid3. PDF upload accepted (returns /api/uploads/*.pdf, .doc/.exe rejected). vCard returns text/vcard with FN/TEL/EMAIL/ORG/TITLE populated and filename based on business-name slug. QR PNG returns image/png with correct magic bytes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/c/{slug} & GET /api/admin/exhibitors", "issue": "For exhibitor documents that have NEVER been written with the new fields (no PUT performed since the feature shipped), the response omits catalogue_pdf_url / catalogue_gallery / testimonials / custom_links / shop_address / shop_maps_link. The seeded /c/4omid3 only returned them AFTER the first PUT. Recommendation: include these as default empty values ('' or []) in EXHIBITOR_PUBLIC_FIELDS projection / Pydantic response model so clients always get a stable schema even pre-migration."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/exhibitor/dashboard", "issues": ["Top-right green 'Signed in' badge overlaps with top-left '← HOME' link on mobile (390px) — minor stacking issue, both are still readable but slightly cluttered."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_rama_bazaar.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional polish) Return the new digital-card fields with empty defaults for exhibitors that have not yet been updated, so the public /api/c/{slug} schema is stable regardless of whether the doc has been written since the migration.",
+    "(Outside-of-this-task) Pre-existing failures remain in suite: (1) test_legacy_uploads_path_still_works — documented k8s ingress limitation from iter_2; (2) test_social_post_png_3000x3000 — social-post PNG is now 1500x1500 (was 3000x3000 in iter_2). If 1500x1500 is the intended new size, update the assertion accordingly; otherwise size has regressed."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now ~1400+ lines — exceeds 700-line guideline. Split into routers (auth, exhibitors, upload, digital_card, social_post, admin).",
+    "Slug alphabet documented as 'avoids 0/1/l/o' but actual alphabet abcdefghijkmnopqrstuvwxyz23456789 includes 'o' (seeded slug '4omid3' uses it). Decide one and align docs + code.",
+    "QR PNG generation is synchronous in the request handler; consider caching by slug for high-traffic public links shared via NFC.",
+    "PDF upload should validate file size (problem statement says max 20MB) — confirm there is a server-side cap, not just MIME-type check.",
+    "Public /api/c/{slug} should always include the new fields with safe defaults — see backend minor issue above."
+  ],
+  "updated_files": ["/app/backend/tests/test_rama_bazaar.py"],
+  "success_rate": {"backend": "100% on Digital Card (13/13); overall 66/68 (2 pre-existing failures unrelated to this iteration)", "frontend": "100% (all 9 public-card testids + 10 dashboard manager testids present; e2e add-testimonial→save→public render works; vcard <a> href correct; card-not-found state works; nav/footer correctly hidden on /c/)"},
+  "test_credentials": "Admin: admin@admin.com / Admin@123 ; Seeded Exhibitor: mobile 9876543210 / password Demo@123 (slug=4omid3). NOTE: iter_2 password 'Exhibit@123' is stale; the seeded exhibitor password is now 'Demo@123'. /app/memory/test_credentials.md is correct.",
+  "seed_data_creation": "None permanent. Test PUT mutated seeded exhibitor's digital-card fields, then reset back to original demo content (2 testimonials by Nikhil Shah / Rita Mehta, 2 custom links to YouTube/Calendly, shop_address='32 Mahida Bhavan, Athwa, Surat'). New TestDigitalCard.test_new_registration_assigns_slug self-cleans by deleting the created exhibitor.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_rama_bazaar.py now has TestDigitalCard (13 tests) covering: slug backfill+uniqueness+format, /api/c/{slug} public payload+404+hidden→404, vCard format & filename, QR PNG magic bytes, /api/upload accepting PDF / rejecting .doc/.exe, PUT /exhibitors/me with new fields persists + reflects on /auth/me + public card, new registration auto-assigns slug. Frontend public card data-testids: save-to-contacts, qa-call, qa-wa, qa-email, qa-map, gallery-carousel, testimonials-carousel, social-row, custom-links, card-not-found. Dashboard manager testids: card-url-text, copy-card-url, card-qr-img, open-card-btn, download-qr-btn, upload-pdf-input, add-gallery-input, add-testimonial-btn, add-link-btn, dc-save-btn. Seeded SEEDED_EX_PASSWORD was updated from 'Exhibit@123' → 'Demo@123' in test file.",
+  "rca of the issue": "Pre-existing test failure #2 (social-post 3000→1500): main agent likely reduced canvas size for performance after iter_2 since 3000x3000 PIL render with multi-paste was 2-5s. Assertion in test_social_post_png_3000x3000 still expects 3000x3000. Either restore 3000x3000 or update the assertion. Pre-existing failure #1 (legacy /uploads/) is the k8s ingress route mismatch already documented in iter_2."
+}

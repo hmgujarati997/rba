@@ -3,7 +3,7 @@ import TopBar from "../components/TopBar";
 import api, { formatError, BACKEND_URL, API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { LogOut, Download, Share2, MessageCircle, Sparkles } from "lucide-react";
+import { LogOut, Download, Share2, MessageCircle, Sparkles, Copy, Plus, Trash2, ExternalLink, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 
 function absUrl(u) { if (!u) return ""; return u.startsWith("http") ? u : `${BACKEND_URL}${u}`; }
@@ -84,8 +84,13 @@ export default function ExhibitorDashboard() {
             <Row k="website" v={form} u={update} label="Website" />
             <Row k="address" v={form} u={update} label="Address" />
             <Row k="maps_link" v={form} u={update} label="Google Maps Link" />
+            <Row k="shop_address" v={form} u={update} label="Shop / Office Address (on digital card)" />
+            <Row k="shop_maps_link" v={form} u={update} label="Shop / Office Maps Link" />
           </div>
         )}
+
+        {/* DIGITAL VISITING CARD MANAGER */}
+        <DigitalCardManager form={form} setForm={setForm} uploadFile={uploadFile} save={save} update={update} />
 
         {/* SOCIAL POST GENERATOR */}
         <SocialPostCard form={form} save={save} />
@@ -348,6 +353,203 @@ function PreviewCard({ ex }) {
           </div>
           {ex.description && <p className="mt-4 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>{ex.description}</p>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+function DigitalCardManager({ form, setForm, uploadFile, save, update }) {
+  const slug = form.slug;
+  const cardUrl = slug ? `${window.location.origin}/c/${slug}` : "";
+  const qrUrl = slug ? `${API}/c/${slug}/qr.png` : "";
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(cardUrl); toast.success("Link copied"); }
+    catch { toast.error("Copy failed"); }
+  };
+
+  const uploadPdf = async (file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) { toast.error("Please upload a PDF"); return; }
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      update("catalogue_pdf_url", data.url);
+      toast.success("Catalogue uploaded");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail) || "Upload failed"); }
+  };
+
+  const addGalleryItem = async (file) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const { data } = await api.post("/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const next = [...(form.catalogue_gallery || []), { image_url: data.url, name: "", description: "" }];
+      setForm((f) => ({ ...f, catalogue_gallery: next }));
+      toast.success("Added");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail) || "Upload failed"); }
+  };
+
+  const updateGalleryItem = (i, key, val) => {
+    const next = [...(form.catalogue_gallery || [])];
+    next[i] = { ...next[i], [key]: val };
+    setForm((f) => ({ ...f, catalogue_gallery: next }));
+  };
+
+  const removeGalleryItem = (i) => {
+    const next = [...(form.catalogue_gallery || [])];
+    next.splice(i, 1);
+    setForm((f) => ({ ...f, catalogue_gallery: next }));
+  };
+
+  const updateList = (key, i, field, val) => {
+    const next = [...(form[key] || [])];
+    next[i] = { ...next[i], [field]: val };
+    setForm((f) => ({ ...f, [key]: next }));
+  };
+
+  const addRow = (key, blank) => {
+    const next = [...(form[key] || []), blank];
+    setForm((f) => ({ ...f, [key]: next }));
+  };
+
+  const removeRow = (key, i) => {
+    const next = [...(form[key] || [])];
+    next.splice(i, 1);
+    setForm((f) => ({ ...f, [key]: next }));
+  };
+
+  const gallery = form.catalogue_gallery || [];
+  const testimonials = form.testimonials || [];
+  const links = form.custom_links || [];
+
+  return (
+    <div className="mt-12" data-testid="digital-card-manager">
+      <div className="eyebrow" style={{ color: "#b2873d" }}>My Digital Visiting Card</div>
+      <h2 className="font-serif-display text-3xl mt-2">Your shareable, NFC-ready card</h2>
+      <p className="mt-2 text-sm leading-relaxed" style={{ color: "#3b3b46" }}>
+        Print the QR on your physical card, embed it in NFC tags, or share the short link directly. Every save here updates your public card instantly.
+      </p>
+
+      {/* Public link + QR */}
+      <div className="mt-6 card-luxe p-5" style={{ borderRadius: 18 }}>
+        <div className="flex flex-col sm:flex-row gap-5 items-start">
+          {qrUrl && (
+            <div className="shrink-0" style={{ background: "#fbf8f0", border: "1px solid #d8bc84", borderRadius: 14, padding: 10 }}>
+              <img src={qrUrl} alt="Card QR" width={160} height={160} data-testid="card-qr-img" />
+            </div>
+          )}
+          <div className="flex-1 w-full">
+            <div className="eyebrow">Public Card URL</div>
+            <div className="mt-2 flex items-center gap-2 card-luxe px-3 py-2" style={{ borderRadius: 10, background: "#fbf8f0" }}>
+              <span className="text-sm truncate flex-1" style={{ color: "#1f1f27" }} data-testid="card-url-text">{cardUrl}</span>
+              <button onClick={copyLink} data-testid="copy-card-url" className="inline-flex items-center gap-1 text-xs uppercase tracking-luxe px-2 py-1 rounded-full" style={{ border: "1px solid #d8bc84", color: "#b2873d" }}>
+                <Copy size={12} /> Copy
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={cardUrl} target="_blank" rel="noreferrer" data-testid="open-card-btn" className="btn-outline-gold inline-flex items-center gap-2"><ExternalLink size={14}/> Open my card</a>
+              <a href={qrUrl} download={`card-qr-${slug}.png`} data-testid="download-qr-btn" className="btn-outline-gold inline-flex items-center gap-2"><Download size={14}/> Download QR</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Catalogue PDF */}
+      <div className="mt-8">
+        <div className="eyebrow">Catalogue PDF</div>
+        <div className="mt-3 card-luxe p-4" style={{ borderRadius: 14 }}>
+          {form.catalogue_pdf_url ? (
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <a href={absUrl(form.catalogue_pdf_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm" style={{ color: "#1B194B" }}>
+                <FileText size={16}/> View current PDF <ExternalLink size={12}/>
+              </a>
+              <button onClick={() => update("catalogue_pdf_url", "")} data-testid="remove-pdf-btn" className="text-xs uppercase tracking-luxe inline-flex items-center gap-1" style={{ color: "#9a4444" }}><Trash2 size={12}/> Remove</button>
+            </div>
+          ) : (
+            <div className="text-sm" style={{ color: "#7a7868" }}>No catalogue uploaded yet.</div>
+          )}
+          <div className="mt-3">
+            <label className="btn-outline-gold inline-flex items-center gap-2 cursor-pointer">
+              <Plus size={14}/> {form.catalogue_pdf_url ? "Replace PDF" : "Upload PDF"}
+              <input type="file" accept="application/pdf,.pdf" className="hidden" data-testid="upload-pdf-input"
+                     onChange={(e) => e.target.files?.[0] && uploadPdf(e.target.files[0])}/>
+            </label>
+            <span className="ml-2 text-xs" style={{ color: "#7a7868" }}>Max 20 MB</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Gallery */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <div className="eyebrow">Products & Services Gallery</div>
+          <label className="btn-outline-gold inline-flex items-center gap-2 cursor-pointer text-xs">
+            <Plus size={12}/> Add Image
+            <input type="file" accept="image/*" className="hidden" data-testid="add-gallery-input"
+                   onChange={(e) => { const f = e.target.files?.[0]; if (f) addGalleryItem(f); e.target.value = ""; }}/>
+          </label>
+        </div>
+        {gallery.length === 0 && <div className="mt-3 text-sm" style={{ color: "#7a7868" }}>No items yet. Add product or service photos to showcase on your card.</div>}
+        <div className="mt-3 space-y-3">
+          {gallery.map((g, i) => (
+            <div key={i} className="card-luxe p-3 flex gap-3" style={{ borderRadius: 14 }} data-testid={`gallery-item-${i}`}>
+              {g.image_url && <img src={absUrl(g.image_url)} alt="" className="rounded-lg" style={{ width: 80, height: 80, objectFit: "cover", border: "1px solid #d8bc84" }}/>}
+              <div className="flex-1 min-w-0 space-y-2">
+                <input className="input-luxe" placeholder="Name (e.g. Premium Saree)" value={g.name || ""} onChange={(e) => updateGalleryItem(i, "name", e.target.value)} data-testid={`gallery-name-${i}`}/>
+                <input className="input-luxe" placeholder="Short description" value={g.description || ""} onChange={(e) => updateGalleryItem(i, "description", e.target.value)} data-testid={`gallery-desc-${i}`}/>
+              </div>
+              <button onClick={() => removeGalleryItem(i)} className="self-start p-2 rounded-full" style={{ color: "#9a4444" }} data-testid={`gallery-remove-${i}`}><Trash2 size={14}/></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Testimonials */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <div className="eyebrow">Testimonials</div>
+          <button onClick={() => addRow("testimonials", { name: "", role: "", text: "" })} className="btn-outline-gold inline-flex items-center gap-2 text-xs" data-testid="add-testimonial-btn"><Plus size={12}/> Add</button>
+        </div>
+        {testimonials.length === 0 && <div className="mt-3 text-sm" style={{ color: "#7a7868" }}>Add quotes from happy clients to build trust.</div>}
+        <div className="mt-3 space-y-3">
+          {testimonials.map((t, i) => (
+            <div key={i} className="card-luxe p-3 space-y-2" style={{ borderRadius: 14 }} data-testid={`testimonial-item-${i}`}>
+              <textarea rows={3} className="input-luxe resize-none" placeholder="Their words…" value={t.text || ""} onChange={(e) => updateList("testimonials", i, "text", e.target.value)} data-testid={`testimonial-text-${i}`}/>
+              <div className="grid grid-cols-2 gap-2">
+                <input className="input-luxe" placeholder="Name" value={t.name || ""} onChange={(e) => updateList("testimonials", i, "name", e.target.value)} data-testid={`testimonial-name-${i}`}/>
+                <input className="input-luxe" placeholder="Role / Company" value={t.role || ""} onChange={(e) => updateList("testimonials", i, "role", e.target.value)} data-testid={`testimonial-role-${i}`}/>
+              </div>
+              <button onClick={() => removeRow("testimonials", i)} className="text-xs uppercase tracking-luxe inline-flex items-center gap-1" style={{ color: "#9a4444" }} data-testid={`testimonial-remove-${i}`}><Trash2 size={12}/> Remove</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom Links */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between">
+          <div className="eyebrow">Custom Links</div>
+          <button onClick={() => addRow("custom_links", { label: "", url: "" })} className="btn-outline-gold inline-flex items-center gap-2 text-xs" data-testid="add-link-btn"><Plus size={12}/> Add</button>
+        </div>
+        {links.length === 0 && <div className="mt-3 text-sm" style={{ color: "#7a7868" }}>Add YouTube channels, lookbooks, booking links — anything.</div>}
+        <div className="mt-3 space-y-3">
+          {links.map((l, i) => (
+            <div key={i} className="card-luxe p-3 grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] gap-2 items-center" style={{ borderRadius: 14 }} data-testid={`link-item-${i}`}>
+              <input className="input-luxe" placeholder="Label (e.g. Watch Reels)" value={l.label || ""} onChange={(e) => updateList("custom_links", i, "label", e.target.value)} data-testid={`link-label-${i}`}/>
+              <input className="input-luxe" placeholder="https://…" value={l.url || ""} onChange={(e) => updateList("custom_links", i, "url", e.target.value)} data-testid={`link-url-${i}`}/>
+              <button onClick={() => removeRow("custom_links", i)} className="p-2 rounded-full justify-self-end" style={{ color: "#9a4444" }} data-testid={`link-remove-${i}`}><Trash2 size={14}/></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <button onClick={save} className="btn-gold" data-testid="dc-save-btn">Save Digital Card</button>
+        <p className="mt-2 text-xs" style={{ color: "#7a7868" }}>Tip: tap &ldquo;Save Digital Card&rdquo; after every change so it reflects on your public card.</p>
       </div>
     </div>
   );

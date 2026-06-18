@@ -452,7 +452,7 @@ class TestUpload:
 
 # --- Social Post / Photo Framing tests (seeded exhibitor 9876543210) ---
 SEEDED_EX_MOBILE = "9876543210"
-SEEDED_EX_PASSWORD = "Exhibit@123"
+SEEDED_EX_PASSWORD = "Demo@123"
 
 
 @pytest.fixture(scope="session")
@@ -547,6 +547,201 @@ class TestSocialPost:
         r = s.get(f"{BASE_URL}{url}")
         assert r.status_code == 200, f"profile photo not accessible at {url}: {r.status_code}"
         assert r.headers.get("content-type", "").startswith("image/")
+
+
+# --- Digital Visiting Card (slug, /c/, vcard, qr, PDF upload, new exhibitor fields) ---
+SEEDED_SLUG = "4omid3"
+DEMO_EX_MOBILE = "9876543210"
+DEMO_EX_PASSWORD = "Demo@123"
+
+
+@pytest.fixture(scope="session")
+def demo_ex_token(s):
+    r = s.post(f"{BASE_URL}/api/auth/login",
+               json={"mobile": DEMO_EX_MOBILE, "password": DEMO_EX_PASSWORD})
+    if r.status_code != 200:
+        pytest.skip(f"Demo exhibitor login failed: {r.status_code} {r.text}")
+    return r.json()["token"]
+
+
+@pytest.fixture(scope="session")
+def demo_ex_headers(demo_ex_token):
+    return {"Authorization": f"Bearer {demo_ex_token}", "Content-Type": "application/json"}
+
+
+class TestDigitalCard:
+    def test_demo_exhibitor_login(self, s):
+        r = s.post(f"{BASE_URL}/api/auth/login",
+                   json={"mobile": DEMO_EX_MOBILE, "password": DEMO_EX_PASSWORD})
+        assert r.status_code == 200, r.text
+        assert r.json()["role"] == "exhibitor"
+
+    def test_admin_exhibitors_all_have_slug(self, s, admin_headers):
+        r = s.get(f"{BASE_URL}/api/admin/exhibitors", headers=admin_headers)
+        assert r.status_code == 200, r.text
+        exs = r.json()
+        assert isinstance(exs, list) and len(exs) > 0
+        missing = [e.get("id") for e in exs if not e.get("slug")]
+        assert not missing, f"Exhibitors missing slug: {missing}"
+        # Slugs are unique
+        slugs = [e["slug"] for e in exs]
+        assert len(slugs) == len(set(slugs)), "Slugs are not unique"
+        # Slug format: 6 chars from alphabet abcdefghijkmnopqrstuvwxyz23456789 (avoids 0/1/l)
+        import re
+        for sl in slugs:
+            assert re.match(r"^[a-z2-9]{6}$", sl), f"Bad slug format: {sl}"
+            assert "l" not in sl and "0" not in sl and "1" not in sl, f"Slug uses banned chars: {sl}"
+
+    def test_admin_exhibitors_returns_new_fields(self, s, admin_headers):
+        r = s.get(f"{BASE_URL}/api/admin/exhibitors", headers=admin_headers)
+        assert r.status_code == 200
+        # find seeded one
+        seeded = next((e for e in r.json() if e.get("slug") == SEEDED_SLUG), None)
+        assert seeded, f"No exhibitor with slug={SEEDED_SLUG}"
+        for f in ("catalogue_pdf_url", "catalogue_gallery", "testimonials",
+                  "custom_links", "shop_address", "shop_maps_link"):
+            assert f in seeded, f"admin exhibitors missing field {f}"
+
+    def test_public_card_payload(self, s):
+        r = s.get(f"{BASE_URL}/api/c/{SEEDED_SLUG}")
+        assert r.status_code == 200, r.text
+        d = r.json()
+        # Required public fields
+        for f in ("business_name", "member_name", "profile_photo_url",
+                  "description", "products_services", "catalogue_pdf_url",
+                  "catalogue_gallery", "testimonials", "custom_links",
+                  "shop_address", "shop_maps_link", "instagram", "facebook",
+                  "linkedin", "website", "slug"):
+            assert f in d, f"public card missing field: {f}"
+        assert d["slug"] == SEEDED_SLUG
+        # sensitive fields must not leak
+        assert "password_hash" not in d
+        assert "_id" not in d
+
+    def test_public_card_unknown_slug_404(self, s):
+        r = s.get(f"{BASE_URL}/api/c/zzzzzz")
+        assert r.status_code == 404
+
+    def test_public_card_hidden_exhibitor_404(self, s, admin_headers):
+        # find any exhibitor, hide them, expect 404, then unhide
+        exs = s.get(f"{BASE_URL}/api/admin/exhibitors", headers=admin_headers).json()
+        # pick one that's NOT the demo seeded
+        target = next((e for e in exs if e.get("slug") and e.get("slug") != SEEDED_SLUG), None)
+        if not target:
+            pytest.skip("No alternate exhibitor to test hidden state")
+        slug = target["slug"]
+        ex_id = target["id"]
+        original_hidden = target.get("hidden", False)
+        # Hide
+        s.put(f"{BASE_URL}/api/admin/exhibitors/{ex_id}", headers=admin_headers,
+              json={"hidden": True, "approved": target.get("approved", True),
+                    "featured": target.get("featured", False)})
+        try:
+            r = s.get(f"{BASE_URL}/api/c/{slug}")
+            assert r.status_code == 404, f"Hidden exhibitor should 404, got {r.status_code}"
+        finally:
+            # Restore
+            s.put(f"{BASE_URL}/api/admin/exhibitors/{ex_id}", headers=admin_headers,
+                  json={"hidden": original_hidden, "approved": target.get("approved", True),
+                        "featured": target.get("featured", False)})
+
+    def test_vcard_endpoint(self, s):
+        r = s.get(f"{BASE_URL}/api/c/{SEEDED_SLUG}/vcard")
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("text/vcard")
+        body = r.text
+        assert "BEGIN:VCARD" in body
+        assert "VERSION:3.0" in body
+        assert "FN:" in body
+        assert "TEL" in body
+        assert "EMAIL" in body
+        assert "END:VCARD" in body
+        cd = r.headers.get("content-disposition", "")
+        assert ".vcf" in cd
+        # business name slug in filename
+        assert "rapid" in cd.lower() or "express" in cd.lower()
+
+    def test_qr_png(self, s):
+        r = s.get(f"{BASE_URL}/api/c/{SEEDED_SLUG}/qr.png")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "image/png"
+        assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
+        assert len(r.content) > 500
+
+    def test_upload_pdf_accepted(self, s):
+        # Minimal valid PDF header
+        pdf = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
+        files = {"file": ("doc.pdf", pdf, "application/pdf")}
+        r = requests.post(f"{BASE_URL}/api/upload", files=files)
+        assert r.status_code == 200, r.text
+        url = r.json()["url"]
+        assert url.endswith(".pdf"), f"Expected .pdf URL, got {url}"
+        # And reachable
+        r2 = requests.get(f"{BASE_URL}{url}")
+        assert r2.status_code == 200
+
+    def test_upload_rejects_doc(self, s):
+        files = {"file": ("bad.doc", b"\xd0\xcf\x11\xe0fake", "application/msword")}
+        r = requests.post(f"{BASE_URL}/api/upload", files=files)
+        assert r.status_code == 400
+
+    def test_upload_rejects_exe(self, s):
+        files = {"file": ("bad.exe", b"MZfake", "application/x-msdownload")}
+        r = requests.post(f"{BASE_URL}/api/upload", files=files)
+        assert r.status_code == 400
+
+    def test_put_exhibitors_me_new_fields(self, s, demo_ex_headers):
+        marker = uuid.uuid4().hex[:8]
+        payload = {
+            "catalogue_pdf_url": f"/api/uploads/test-{marker}.pdf",
+            "catalogue_gallery": [
+                {"name": f"TEST_Item_{marker}", "description": "desc1", "image_url": "/api/uploads/x.jpg"}
+            ],
+            "testimonials": [
+                {"name": f"TEST_Person_{marker}", "role": "Customer", "text": "Great!"}
+            ],
+            "custom_links": [
+                {"label": f"TEST_Link_{marker}", "url": "https://example.com"}
+            ],
+            "shop_address": f"TEST shop addr {marker}",
+            "shop_maps_link": f"https://maps.example.com/{marker}",
+        }
+        r = s.put(f"{BASE_URL}/api/exhibitors/me", headers=demo_ex_headers, json=payload)
+        assert r.status_code == 200, r.text
+        # verify via /auth/me
+        me = s.get(f"{BASE_URL}/api/auth/me", headers=demo_ex_headers).json()["user"]
+        assert me["catalogue_pdf_url"] == payload["catalogue_pdf_url"]
+        assert me["shop_address"] == payload["shop_address"]
+        assert me["shop_maps_link"] == payload["shop_maps_link"]
+        # Lists – check element values present
+        assert any(t["name"] == f"TEST_Person_{marker}" for t in me["testimonials"])
+        assert any(l["label"] == f"TEST_Link_{marker}" for l in me["custom_links"])
+        assert any(g["name"] == f"TEST_Item_{marker}" for g in me["catalogue_gallery"])
+        # And reflected in public card
+        pub = s.get(f"{BASE_URL}/api/c/{SEEDED_SLUG}").json()
+        assert any(t["name"] == f"TEST_Person_{marker}" for t in pub["testimonials"])
+        assert any(l["label"] == f"TEST_Link_{marker}" for l in pub["custom_links"])
+
+    def test_new_registration_assigns_slug(self, s, admin_headers):
+        new_mobile = "97" + str(uuid.uuid4().int)[:8]
+        # Add to allowed
+        s.post(f"{BASE_URL}/api/admin/members", headers=admin_headers,
+               json={"mobile": new_mobile, "note": "TEST slug check"})
+        r = s.post(f"{BASE_URL}/api/exhibitors/register", json={
+            "mobile": new_mobile, "password": "Slug@123",
+            "member_name": "TEST_SlugUser", "business_name": "TEST_SlugBiz",
+            "category": "Retail", "whatsapp": new_mobile,
+        })
+        assert r.status_code == 200, r.text
+        new_id = r.json()["user"]["id"]
+        # check via admin
+        exs = s.get(f"{BASE_URL}/api/admin/exhibitors", headers=admin_headers).json()
+        new_ex = next((e for e in exs if e["id"] == new_id), None)
+        assert new_ex and new_ex.get("slug"), f"new exhibitor missing slug: {new_ex}"
+        import re
+        assert re.match(r"^[a-z2-9]{6}$", new_ex["slug"])
+        # cleanup
+        s.delete(f"{BASE_URL}/api/admin/exhibitors/{new_id}", headers=admin_headers)
 
 
 # --- Cleanup ---

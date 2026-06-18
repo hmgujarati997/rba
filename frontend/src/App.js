@@ -16,6 +16,7 @@ import Roster from "@/pages/Roster";
 import Attendance from "@/pages/Attendance";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import DigitalCard from "@/pages/DigitalCard";
 import SiteFooter from "@/components/SiteFooter";
 
 function ProtectedExhibitor({ children }) {
@@ -34,7 +35,7 @@ function ProtectedAdmin({ children }) {
 
 function Shell() {
   const { pathname } = useLocation();
-  const hideNav = pathname.startsWith("/admin") || pathname.startsWith("/attendance");
+  const hideNav = pathname.startsWith("/admin") || pathname.startsWith("/attendance") || pathname.startsWith("/c/");
   return (
     <div className="App">
       <Routes>
@@ -49,6 +50,7 @@ function Shell() {
         <Route path="/attendance" element={<ProtectedAdmin><Attendance /></ProtectedAdmin>} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/*" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
+        <Route path="/c/:slug" element={<DigitalCard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!hideNav && <SiteFooter inset />}
