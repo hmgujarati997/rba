@@ -1414,11 +1414,11 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
     # ------- Brand corners + centered hero lockup -------
     # Top-left: LVB Rama ink lockup (small, anchored in the corner)
     _paste(brand / "lvb-rama-ink.png", max_w=180, max_h=58, cx=160, cy=110)
-    # CENTER: Full Rama Bazaar lockup (hero brand)
-    _paste(brand / "rama-bazaar-lockup.png", max_w=360, max_h=360, cx=W // 2, cy=240)
+    # CENTER: Full Rama Bazaar lockup (BIG hero brand)
+    _paste(brand / "rama-bazaar-lockup.png", max_w=520, max_h=520, cx=W // 2, cy=290)
 
     # Gold divider with notch ornaments
-    div_y = 432
+    div_y = 560
     draw.line([(180, div_y), (W - 180, div_y)], fill="#d8bc84", width=1)
     # diamond ornament center
     cx_div = W // 2
@@ -1426,9 +1426,9 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
     draw.polygon(pts, fill="#b2873d")
 
     # ------- Company logo crest (normalised cream chip, BIG) -------
-    crest_size = 380
+    crest_size = 320
     crest_x = (W - crest_size) // 2
-    crest_y = 470
+    crest_y = 600
     # outer shadow band
     draw.rounded_rectangle(
         [(crest_x - 6, crest_y - 6), (crest_x + crest_size + 6, crest_y + crest_size + 6)],
