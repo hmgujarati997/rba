@@ -1413,36 +1413,36 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
 
     # ------- Brand corners -------
     # Top-left: LVB Rama ink lockup
-    _paste(brand / "lvb-rama-ink.png", max_w=220, max_h=70, cx=180, cy=110)
-    # Top-right: Rama Bazaar emblem (round monogram)
-    _paste(brand / "rb-emblem.png", max_w=110, max_h=110, cx=W - 130, cy=110)
+    _paste(brand / "lvb-rama-ink.png", max_w=240, max_h=78, cx=190, cy=130)
+    # Top-right: Full Rama Bazaar lockup (RB + RAMA + BAZAAR 1.0 + tagline)
+    _paste(brand / "rama-bazaar-lockup.png", max_w=240, max_h=240, cx=W - 180, cy=170)
 
     # ------- Top eyebrow -------
-    eyebrow_f = _cinzel(32)
-    draw.text((W // 2, 220), "EXHIBITOR · RAMA BAZAAR 1.0",
+    eyebrow_f = _cinzel(30)
+    draw.text((W // 2, 310), "EXHIBITOR",
               font=eyebrow_f, fill="#b2873d", anchor="mt")
 
     # Gold divider with notch ornaments
-    div_y = 280
-    draw.line([(160, div_y), (W - 160, div_y)], fill="#d8bc84", width=1)
+    div_y = 358
+    draw.line([(180, div_y), (W - 180, div_y)], fill="#d8bc84", width=1)
     # diamond ornament center
-    cx = W // 2
-    pts = [(cx, div_y - 7), (cx + 7, div_y), (cx, div_y + 7), (cx - 7, div_y)]
+    cx_div = W // 2
+    pts = [(cx_div, div_y - 7), (cx_div + 7, div_y), (cx_div, div_y + 7), (cx_div - 7, div_y)]
     draw.polygon(pts, fill="#b2873d")
 
-    # ------- Company logo crest (normalised cream chip) -------
-    crest_size = 280
+    # ------- Company logo crest (normalised cream chip, BIGGER) -------
+    crest_size = 420
     crest_x = (W - crest_size) // 2
-    crest_y = 330
+    crest_y = 400
     # outer shadow band
     draw.rounded_rectangle(
-        [(crest_x - 4, crest_y - 4), (crest_x + crest_size + 4, crest_y + crest_size + 4)],
-        radius=28, fill=None, outline="#e7d2a6", width=1,
+        [(crest_x - 6, crest_y - 6), (crest_x + crest_size + 6, crest_y + crest_size + 6)],
+        radius=32, fill=None, outline="#e7d2a6", width=1,
     )
     # crest panel
     draw.rounded_rectangle(
         [(crest_x, crest_y), (crest_x + crest_size, crest_y + crest_size)],
-        radius=24, fill="#fbf8f0", outline="#d8bc84", width=2,
+        radius=28, fill="#fbf8f0", outline="#d8bc84", width=2,
     )
 
     # Paste exhibitor logo inside the chip, contained
@@ -1457,22 +1457,22 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                     logo_path = p
                     break
     if logo_path:
-        _paste(logo_path, max_w=crest_size - 56, max_h=crest_size - 56,
+        _paste(logo_path, max_w=crest_size - 70, max_h=crest_size - 70,
                cx=crest_x + crest_size // 2, cy=crest_y + crest_size // 2)
     else:
         # Fallback monogram initial
-        initial_f = _truetype(160, italic=True)
+        initial_f = _truetype(220, italic=True)
         initial = (ex.get("business_name") or ex.get("member_name") or "R").strip()[:1].upper()
-        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 8),
+        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 12),
                   initial, font=initial_f, fill="#b2873d", anchor="mm")
 
     # ------- Name lockup -------
-    text_top = crest_y + crest_size + 60
+    text_top = crest_y + crest_size + 70
 
     # Member name in italic Playfair (auto-fit width)
     member = (ex.get("member_name") or "").strip() or "Exhibitor"
-    name_f, name_w, name_h = _fit_text(draw, member[:34], max_w=W - 240, max_h=110,
-                                       start_size=78, min_size=44, italic=True)
+    name_f, name_w, name_h = _fit_text(draw, member[:34], max_w=W - 220, max_h=110,
+                                       start_size=82, min_size=48, italic=True)
     draw.text((W // 2, text_top), member[:34], font=name_f, fill="#1B194B", anchor="mt")
     name_block_h = name_h + 14
 
@@ -1483,30 +1483,29 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         pos_f = _cinzel(22)
         draw.text((W // 2, next_y), position[:42].upper(),
                   font=pos_f, fill="#7a7868", anchor="mt")
-        next_y += 40
+        next_y += 42
 
     # Business name (Cinzel caps in gold)
     biz = (ex.get("business_name") or "").strip()
     if biz:
         biz_f, biz_w, biz_h = _fit_text(draw, biz[:36], max_w=W - 220, max_h=70,
-                                        start_size=44, min_size=26, bold=True)
-        # Use Cinzel for the same size
+                                        start_size=46, min_size=26, bold=True)
         biz_font = _cinzel(biz_f.size if hasattr(biz_f, "size") else 36)
-        draw.text((W // 2, next_y + 18), biz[:36],
+        draw.text((W // 2, next_y + 22), biz[:36],
                   font=biz_font, fill="#b2873d", anchor="mt")
-        next_y += biz_h + 36
+        next_y += biz_h + 42
 
     # ------- Phone (pill with tracked digits) -------
     phone = (ex.get("whatsapp") or ex.get("mobile") or "").strip()
     if phone:
         phone_disp = f"+91 {phone[:5]} {phone[5:10]}" if phone.isdigit() and len(phone) == 10 else f"+91 {phone}"
-        ph_f = _truetype(34)
+        ph_f = _truetype(36)
         tb = draw.textbbox((0, 0), phone_disp, font=ph_f, anchor="lt")
         ph_w = tb[2] - tb[0]
-        pad_x, pad_y = 26, 12
+        pad_x, pad_y = 30, 14
         pill_w = ph_w + pad_x * 2
         pill_h = (tb[3] - tb[1]) + pad_y * 2
-        pill_y = next_y + 28
+        pill_y = next_y + 6
         pill_x0 = (W - pill_w) // 2
         draw.rounded_rectangle(
             [(pill_x0, pill_y), (pill_x0 + pill_w, pill_y + pill_h)],
@@ -1516,19 +1515,16 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                   phone_disp, font=ph_f, fill="#1B194B", anchor="mm")
 
     # ------- Bottom band -------
-    # gold hairline + footer
-    foot_y = H - 130
-    draw.line([(160, foot_y), (W - 160, foot_y)], fill="#d8bc84", width=1)
-    pts = [(W // 2, foot_y - 6), (W // 2 + 6, foot_y), (W // 2, foot_y + 6), (W // 2 - 6, foot_y)]
-    draw.polygon(pts, fill="#b2873d")
+    # gold hairline + ref only (lockup is already at top)
+    foot_y = H - 110
+    draw.line([(180, foot_y), (W - 180, foot_y)], fill="#d8bc84", width=1)
+    pts2 = [(W // 2, foot_y - 6), (W // 2 + 6, foot_y), (W // 2, foot_y + 6), (W // 2 - 6, foot_y)]
+    draw.polygon(pts2, fill="#b2873d")
 
-    wordmark_f = _cinzel(24)
-    draw.text((W // 2, foot_y + 20), "RAMA BAZAAR 1.0",
-              font=wordmark_f, fill="#1B194B", anchor="mt")
-    sub_f = _truetype(18, italic=True)
+    sub_f = _truetype(20, italic=True)
     slug = ex.get("slug") or ""
     sub = f"Exhibitor Badge · Ref {slug.upper()}" if slug else "Exhibitor Badge"
-    draw.text((W // 2, foot_y + 58), sub, font=sub_f, fill="#7a7868", anchor="mt")
+    draw.text((W // 2, foot_y + 28), sub, font=sub_f, fill="#7a7868", anchor="mt")
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=True)
