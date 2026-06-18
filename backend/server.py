@@ -267,8 +267,17 @@ async def _generate_unique_slug() -> str:
     # Fallback to longer slug if astronomically unlucky
     return _make_slug(8)
 
+_EXHIBITOR_LIST_DEFAULTS = {"catalogue_gallery", "testimonials", "custom_links"}
+_EXHIBITOR_STR_DEFAULTS = {"catalogue_pdf_url", "shop_address", "shop_maps_link"}
+
 def public_exhibitor(doc: dict) -> dict:
-    return {k: doc.get(k) for k in EXHIBITOR_PUBLIC_FIELDS if k in doc}
+    out = {k: doc.get(k) for k in EXHIBITOR_PUBLIC_FIELDS if k in doc}
+    # Stable schema: always expose digital-card fields with safe defaults
+    for k in _EXHIBITOR_LIST_DEFAULTS:
+        out[k] = doc.get(k) or []
+    for k in _EXHIBITOR_STR_DEFAULTS:
+        out[k] = doc.get(k) or ""
+    return out
 
 def admin_exhibitor(doc: dict) -> dict:
     d = dict(doc)

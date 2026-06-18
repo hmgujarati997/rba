@@ -28,26 +28,37 @@ Build a premium mobile-first PWA for "Rama Bazaar 1.0", an exclusive business ex
 ✅ Admin panel: stats, visitors (search + CSV export), exhibitors (approve/feature/hide/reset-pw/delete), allowed-members, sponsor-ads CRUD, event settings, attendance
 ✅ BizChat WhatsApp integration scaffolded: `/api/visitors/send-whatsapp/{qr_id}` (uses settings.bizchat_vendor_uid + token)
 ✅ Service worker + manifest + meta tags + OpenGraph
-✅ Backend pytest suite: 60/61 tests passing (1 known ingress limitation)
+✅ Backend pytest suite: 66/68 tests passing (2 pre-existing known issues unrelated to current work)
 ✅ Social Post Generator (Pillow): luxury Playfair Display + Cinzel fonts, photo composited into curved silhouette, exhibitor-controlled framing (drag focus + zoom slider), download/share via WhatsApp — see `GET /api/exhibitors/me/social-post.png`
 ✅ Uploads served via `/api/uploads/*` (routes through Kubernetes ingress; legacy `/uploads/*` mount kept for in-container PIL access)
+✅ Branded downloadable Visitor Pass PNG (1080×1900): hero Rama Bazaar lockup + visitor name in italic Playfair + LVB chapter pill + perforation + QR sub-card + date/venue rows + Tech Partner footer (Feb 2026 redesign)
+✅ "Title Sponsor" → "Powered by" label change applied across landing, popup, visitor pass, visitor success and admin dropdown (Feb 2026)
+✅ Removed "Why Visit" section from landing per request (Feb 2026)
+✅ Public Digital Visiting Card per exhibitor at `/c/{6-char-slug}` (Feb 2026):
+   - Backend: `GET /api/c/{slug}` (public payload), `GET /api/c/{slug}/vcard` (RFC vCard download), `GET /api/c/{slug}/qr.png` (printable QR for NFC/print)
+   - Slug auto-generated on register; backfilled on startup for existing exhibitors; unique index
+   - Hybrid premium design: full-bleed hero/banner overlay + circular avatar + serif name lockup + white luxury card body
+   - Card includes: Save-to-Contacts vCard, Call/WhatsApp/Email/Map quick actions, About, Offerings, Products & Services gallery carousel, Catalogue PDF download, Testimonials carousel, Find-us with maps link, Social pills, Custom-link list
+   - Exhibitor Dashboard `DigitalCardManager`: public link + QR preview + copy/download, PDF upload (max 20 MB), gallery image CRUD, testimonials CRUD, custom-links CRUD
+   - `/upload` extended to accept PDF (image/* up to 8 MB, PDF up to 20 MB)
+   - Public payload returns stable schema with safe defaults for unmigrated exhibitor docs
 
 ## Test Credentials
 - Admin: `admin@admin.com` / `Admin@123`
-- Exhibitor: created by registration after admin adds an allowed mobile
+- Demo Exhibitor: mobile `9876543210` / password `Demo@123` (slug `4omid3` → `/c/4omid3`)
 
 ## Prioritized Backlog
 ### P1 (next)
+- Refactor `server.py` (now ~1500 lines) into routers: auth, exhibitors, digital_card, visitors, sponsors, admin, social_post
 - Admin can paste BizChat `vendor_uid` + `token` in Settings tab → real WhatsApp QR delivery on visitor registration
 - Branded PWA icons (192/512) generated from logo
-- Add member-mobile clarifying message during exhibitor verify (slots-remaining live counter)
 
 ### P2 (later)
+- Embed visitor's circular photo on the downloadable Visitor Pass (personalized keepsake)
+- Cache `/api/c/{slug}/qr.png` for high-traffic NFC links
 - Refresh-token flow (currently 7-day access token)
 - Server-side image compression on upload (Pillow resize to max 1600px, WebP output)
 - Rate-limit /sponsor-ads/{id}/impression to prevent counter spam (IP-based dedupe in Mongo)
-- Split server.py into routers (auth/visitors/exhibitors/admin/sponsors) — currently ~750 lines
-- Refresh-token cookie + secure flag for prod
 
 ## Key Files
 - `/app/backend/server.py` — all routes
