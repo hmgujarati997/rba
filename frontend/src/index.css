@@ -142,6 +142,7 @@ body {
   border-radius: 10px;
 }
 @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+@keyframes slide-up { from { transform: translateY(24px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
 
 @layer base {
   * { @apply border-border; }

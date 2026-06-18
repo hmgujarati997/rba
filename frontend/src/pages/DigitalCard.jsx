@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import api, { BACKEND_URL } from "../lib/api";
 import {
   Phone, MessageCircle, Mail, MapPin, Instagram, Facebook, Linkedin, Globe,
-  Download, ExternalLink, UserPlus, Share2, ChevronLeft, ChevronRight,
+  Download, ExternalLink, UserPlus, Share2, ChevronLeft, ChevronRight, Send, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +13,7 @@ export default function DigitalCard() {
   const { slug } = useParams();
   const [ex, setEx] = useState(null);
   const [err, setErr] = useState("");
+  const [showInquiry, setShowInquiry] = useState(false);
 
   useEffect(() => {
     document.title = "Loading… · Rama Bazaar";
@@ -256,8 +257,57 @@ export default function DigitalCard() {
               </div>
             </Section>
           )}
+
+          {/* Inline Inquiry Form */}
+          {phone && (
+            <Section label="Send an inquiry">
+              <p className="text-sm leading-relaxed mb-4" style={{ color: "#7a7868" }}>
+                Drop a quick note — it opens in your WhatsApp ready to send to {ex.business_name || "us"}.
+              </p>
+              <InquiryForm
+                phone={phone}
+                businessName={ex.business_name || ex.member_name || ""}
+                testidSuffix="inline"
+              />
+            </Section>
+          )}
         </div>
       </div>
+
+      {/* Sticky floating CTA */}
+      {phone && (
+        <button
+          onClick={() => setShowInquiry(true)}
+          data-testid="open-inquiry-modal"
+          aria-label="Send an inquiry"
+          className="inline-flex items-center gap-2"
+          style={{
+            position: "fixed",
+            right: 18,
+            bottom: 20,
+            zIndex: 60,
+            background: "#1B194B",
+            color: "#fbf6e8",
+            padding: "14px 18px",
+            borderRadius: 999,
+            fontSize: 12,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            boxShadow: "0 18px 36px -10px rgba(27,25,75,0.55), 0 0 0 1px rgba(216,188,132,0.55)",
+          }}
+        >
+          <Send size={14} /> Send Inquiry
+        </button>
+      )}
+
+      {/* Inquiry Modal */}
+      {showInquiry && phone && (
+        <InquiryModal
+          onClose={() => setShowInquiry(false)}
+          phone={phone}
+          businessName={ex.business_name || ex.member_name || ""}
+        />
+      )}
     </div>
   );
 }
@@ -468,6 +518,190 @@ function TestimonialsCarousel({ items }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+
+function InquiryForm({ phone, businessName, onSubmitted, testidSuffix = "" }) {
+  const [name, setName] = useState("");
+  const [from, setFrom] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const t = (x) => (testidSuffix ? `${x}-${testidSuffix}` : x);
+
+  const onSend = (e) => {
+    e?.preventDefault?.();
+    if (!name.trim() || !message.trim()) {
+      toast.error("Please fill your name and message");
+      return;
+    }
+    setSending(true);
+    const lines = [
+      `Hi ${businessName ? businessName : "there"},`,
+      "",
+      `I came across your digital card and would like to enquire.`,
+      "",
+      `Name: ${name.trim()}`,
+    ];
+    if (from.trim()) lines.push(`Phone: ${from.trim()}`);
+    if (email.trim()) lines.push(`Email: ${email.trim()}`);
+    lines.push("", `Message: ${message.trim()}`);
+    const text = encodeURIComponent(lines.join("\n"));
+    const wa = `https://wa.me/91${phone}?text=${text}`;
+    // open in new tab — visitor's WhatsApp opens with the pre-filled message
+    window.open(wa, "_blank", "noopener,noreferrer");
+    toast.success("Opening WhatsApp…");
+    setTimeout(() => {
+      setSending(false);
+      onSubmitted?.();
+    }, 400);
+  };
+
+  return (
+    <form onSubmit={onSend} className="space-y-3" data-testid={t("inquiry-form")}>
+      <div>
+        <label className="eyebrow block mb-1" style={{ fontSize: 10 }}>Your name *</label>
+        <input
+          className="input-luxe"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Jane Doe"
+          data-testid={t("inquiry-name")}
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="eyebrow block mb-1" style={{ fontSize: 10 }}>Phone</label>
+          <input
+            className="input-luxe"
+            inputMode="tel"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            placeholder="+91 98XXXXXXXX"
+            data-testid={t("inquiry-phone")}
+          />
+        </div>
+        <div>
+          <label className="eyebrow block mb-1" style={{ fontSize: 10 }}>Email</label>
+          <input
+            className="input-luxe"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="jane@example.com"
+            data-testid={t("inquiry-email")}
+          />
+        </div>
+      </div>
+      <div>
+        <label className="eyebrow block mb-1" style={{ fontSize: 10 }}>Message *</label>
+        <textarea
+          rows={4}
+          required
+          className="input-luxe resize-none"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder={`Hi ${businessName || ""}, I would like to know more about…`}
+          data-testid={t("inquiry-message")}
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={sending}
+        className="flex items-center justify-center gap-2 rounded-full"
+        style={{
+          width: "100%",
+          background: "#1B194B",
+          color: "#fbf6e8",
+          padding: "14px 18px",
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          fontSize: 12,
+          opacity: sending ? 0.6 : 1,
+        }}
+        data-testid={t("inquiry-submit")}
+      >
+        <MessageCircle size={16} /> Send on WhatsApp
+      </button>
+      <p className="text-[11px] mt-1 text-center" style={{ color: "#7a7868" }}>
+        Opens WhatsApp on your device with the message pre-filled. Tap send to deliver.
+      </p>
+    </form>
+  );
+}
+
+function InquiryModal({ onClose, phone, businessName }) {
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      data-testid="inquiry-modal"
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 80,
+        background: "rgba(15,14,40,0.65)",
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card-luxe"
+        style={{
+          background: "#ffffff",
+          width: "100%",
+          maxWidth: 480,
+          maxHeight: "92vh",
+          overflowY: "auto",
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
+          padding: "22px 22px 28px",
+          boxShadow: "0 -20px 60px -10px rgba(0,0,0,0.4)",
+          animation: "slide-up 220ms ease-out",
+        }}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <div>
+            <div className="eyebrow" style={{ color: "#b2873d" }}>Inquiry</div>
+            <h3 className="font-serif-display text-2xl mt-1" style={{ color: "#1B194B" }}>
+              Send a message
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            data-testid="inquiry-modal-close"
+            style={{
+              width: 36, height: 36, borderRadius: 999,
+              background: "#fbf8f0", border: "1px solid #d8bc84", color: "#b2873d",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p className="text-xs mt-2 mb-4" style={{ color: "#7a7868" }}>
+          To: <span style={{ color: "#1B194B" }}>{businessName || "Exhibitor"}</span>
+        </p>
+        <InquiryForm
+          phone={phone}
+          businessName={businessName}
+          onSubmitted={onClose}
+          testidSuffix="modal"
+        />
+      </div>
     </div>
   );
 }
