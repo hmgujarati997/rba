@@ -1383,11 +1383,15 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
     brand = ROOT_DIR / "assets" / "brand"
 
     # ------- helpers -------
-    def _paste(path, max_w, max_h, cx, cy):
+    def _paste(path, max_w, max_h, cx, cy, auto_crop=False):
         try:
             im = Image.open(str(path)).convert("RGBA")
         except Exception:
             return None
+        if auto_crop:
+            bb = im.getbbox()
+            if bb:
+                im = im.crop(bb)
         iw, ih = im.size
         s = min(max_w / iw, max_h / ih)
         new = (max(1, int(iw * s)), max(1, int(ih * s)))
@@ -1402,19 +1406,19 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                            outline="#e7d2a6", width=1)
 
     # ============ ZONE A · Sponsor strip ============
-    draw.text((W // 2, 72), "POWERED BY",
+    draw.text((W // 2, 78), "POWERED BY",
               font=_cinzel(24), fill="#b2873d", anchor="mt")
-    _paste(brand / "coco-salons.jpg", max_w=460, max_h=104, cx=W // 2, cy=180)
+    _paste(brand / "coco-salons.jpg", max_w=440, max_h=130, cx=W // 2, cy=178)
     # Single hairline divider closes the sponsor zone
-    draw.line([(180, 252), (W - 180, 252)], fill="#d8bc84", width=1)
+    draw.line([(180, 258), (W - 180, 258)], fill="#d8bc84", width=1)
 
     # ============ ZONE B · Hero brand lockup ============
-    # Centered, airy, the focal mark of the entire badge
-    _paste(brand / "rama-bazaar-lockup.png", max_w=760, max_h=560,
-           cx=W // 2, cy=540)
+    # Auto-crop the lockup's transparent padding so the visual reads tight
+    _paste(brand / "rama-bazaar-lockup.png", max_w=520, max_h=400,
+           cx=W // 2, cy=500, auto_crop=True)
 
     # Delicate ornament between the hero and the crest
-    orn_y = 820
+    orn_y = 735
     draw.line([(W // 2 - 140, orn_y), (W // 2 - 22, orn_y)],
               fill="#d8bc84", width=1)
     draw.line([(W // 2 + 22, orn_y), (W // 2 + 140, orn_y)],
@@ -1424,9 +1428,9 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
     draw.polygon(pts, fill="#b2873d")
 
     # ============ ZONE C · Exhibitor crest ============
-    crest_size = 200
+    crest_size = 235
     crest_x = (W - crest_size) // 2
-    crest_y = 840
+    crest_y = 760
     draw.rounded_rectangle(
         [(crest_x, crest_y), (crest_x + crest_size, crest_y + crest_size)],
         radius=26, fill="#fbf8f0", outline="#d8bc84", width=2,
@@ -1452,39 +1456,39 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                   initial, font=initial_f, fill="#b2873d", anchor="mm")
 
     # ============ ZONE D · Exhibitor identity ============
-    text_top = crest_y + crest_size + 38  # ≈ 1078
+    text_top = crest_y + crest_size + 44  # ≈ 1036
 
     # Name — italic Playfair, navy
     member = (ex.get("member_name") or "").strip() or "Exhibitor"
-    name_f, _nw, name_h = _fit_text(draw, member[:34], max_w=W - 220, max_h=80,
-                                    start_size=68, min_size=44, italic=True)
+    name_f, _nw, name_h = _fit_text(draw, member[:34], max_w=W - 220, max_h=90,
+                                    start_size=72, min_size=44, italic=True)
     draw.text((W // 2, text_top), member[:34], font=name_f,
               fill="#1B194B", anchor="mt")
-    next_y = text_top + name_h + 12
+    next_y = text_top + name_h + 14
 
     # Position — tracked caps, muted
     position = (ex.get("position") or "").strip()
     if position:
-        pos_f = _cinzel(18)
+        pos_f = _cinzel(20)
         draw.text((W // 2, next_y), position[:42].upper(),
                   font=pos_f, fill="#7a7868", anchor="mt")
-        next_y += 30
+        next_y += 34
 
     # Business name — Cinzel caps in gold, auto-fit width
     biz = (ex.get("business_name") or "").strip()
     if biz:
-        biz_size = 36
-        while biz_size >= 22:
+        biz_size = 38
+        while biz_size >= 24:
             f = _cinzel(biz_size)
             tb = draw.textbbox((0, 0), biz[:36], font=f, anchor="lt")
             if (tb[2] - tb[0]) <= (W - 220):
                 break
             biz_size -= 3
         biz_font = _cinzel(biz_size)
-        draw.text((W // 2, next_y + 4), biz[:36],
+        draw.text((W // 2, next_y + 6), biz[:36],
                   font=biz_font, fill="#b2873d", anchor="mt")
         bb = draw.textbbox((0, 0), biz[:36], font=biz_font, anchor="lt")
-        next_y += (bb[3] - bb[1]) + 22
+        next_y += (bb[3] - bb[1]) + 24
 
     # Phone pill — luxury chip with tracked digits
     phone = (ex.get("whatsapp") or ex.get("mobile") or "").strip()
@@ -1506,16 +1510,16 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
                   phone_disp, font=ph_f, fill="#1B194B", anchor="mm")
 
     # ============ ZONE E · Footer endorsement ============
-    foot_top = H - 170
+    foot_top = H - 182
     draw.line([(180, foot_top), (W - 180, foot_top)], fill="#d8bc84", width=1)
-    _paste(brand / "lvb-rama-ink.png", max_w=180, max_h=50,
-           cx=W // 2, cy=foot_top + 48)
-    draw.text((W // 2, foot_top + 88), "AN LVB RAMA INITIATIVE",
+    _paste(brand / "lvb-rama-ink.png", max_w=180, max_h=52,
+           cx=W // 2, cy=foot_top + 46)
+    draw.text((W // 2, foot_top + 90), "AN LVB RAMA INITIATIVE",
               font=_cinzel(16), fill="#7a7868", anchor="mt")
     slug = ex.get("slug") or ""
     if slug:
         sub_f = _truetype(16, italic=True)
-        draw.text((W // 2, foot_top + 120), f"Ref · {slug.upper()}",
+        draw.text((W // 2, foot_top + 124), f"Ref · {slug.upper()}",
                   font=sub_f, fill="#9a9685", anchor="mt")
 
     buf = io.BytesIO()
