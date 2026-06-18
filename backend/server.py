@@ -1509,17 +1509,26 @@ def _render_exhibitor_badge(ex: dict) -> bytes:
         draw.text((W // 2, pill_y + pill_h // 2),
                   phone_disp, font=ph_f, fill="#1B194B", anchor="mm")
 
-    # ------- Bottom band -------
-    # gold hairline + ref only (lockup is already at top)
-    foot_y = H - 110
+    # ------- Bottom band: POWERED BY + Coco Salons + ref slug -------
+    # POWERED BY eyebrow
+    powered_y = H - 200
+    powered_f = _cinzel(20)
+    draw.text((W // 2, powered_y), "POWERED BY",
+              font=powered_f, fill="#b2873d", anchor="mt")
+
+    # Coco Salons logo centered
+    _paste(brand / "coco-salons.jpg", max_w=300, max_h=64, cx=W // 2, cy=powered_y + 70)
+
+    # Bottom gold divider with diamond ornament
+    foot_y = H - 70
     draw.line([(180, foot_y), (W - 180, foot_y)], fill="#d8bc84", width=1)
     pts2 = [(W // 2, foot_y - 6), (W // 2 + 6, foot_y), (W // 2, foot_y + 6), (W // 2 - 6, foot_y)]
     draw.polygon(pts2, fill="#b2873d")
 
-    sub_f = _truetype(20, italic=True)
+    sub_f = _truetype(18, italic=True)
     slug = ex.get("slug") or ""
     sub = f"Exhibitor Badge · Ref {slug.upper()}" if slug else "Exhibitor Badge"
-    draw.text((W // 2, foot_y + 28), sub, font=sub_f, fill="#7a7868", anchor="mt")
+    draw.text((W // 2, foot_y + 16), sub, font=sub_f, fill="#7a7868", anchor="mt")
 
     buf = io.BytesIO()
     bg.save(buf, format="PNG", optimize=True)
