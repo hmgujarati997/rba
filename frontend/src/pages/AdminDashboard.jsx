@@ -204,6 +204,30 @@ function Exhibitors() {
           >
             <Download size={12} /> Download bundle (.zip)
           </a>
+          <a
+            href={`${API}/admin/exhibitors/badges.zip`}
+            data-testid="exhibitor-badges-download"
+            onClick={(e) => {
+              e.preventDefault();
+              toast.info("Rendering badges…");
+              api.get("/admin/exhibitors/badges.zip", { responseType: "blob" })
+                .then((r) => {
+                  const u = URL.createObjectURL(r.data);
+                  const a = document.createElement("a");
+                  a.href = u;
+                  a.download = "rama-bazaar-exhibitor-badges.zip";
+                  document.body.appendChild(a);
+                  a.click();
+                  setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 200);
+                  toast.success("Badges downloaded");
+                })
+                .catch((err) => toast.error(formatError(err.response?.data?.detail) || "Download failed"));
+            }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs uppercase tracking-luxe"
+            style={{ background: "#b2873d", color: "#fbf6e8", border: "1px solid #b2873d" }}
+          >
+            <Download size={12} /> Download badges (.zip)
+          </a>
           {[
             ["all", "All"],
             ["unpaid", "Unpaid"],

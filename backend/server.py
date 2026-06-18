@@ -1371,6 +1371,200 @@ async def admin_export_exhibitors_bundle(request: Request, base: Optional[str] =
         headers={"Content-Disposition": 'attachment; filename="rama-bazaar-exhibitors.zip"'},
     )
 
+
+# ---------- Admin: Exhibitor Badges (3.5" × 5", premium PNG, bundled as ZIP) ----------
+def _render_exhibitor_badge(ex: dict) -> bytes:
+    """Render a single 3.5" × 5" portrait PNG badge at 300 DPI (1050 × 1500 px)."""
+    from PIL import Image, ImageDraw
+    W, H = 1050, 1500
+    bg = Image.new("RGB", (W, H), "#f5efe1")
+    draw = ImageDraw.Draw(bg, "RGBA")
+
+    brand = ROOT_DIR / "assets" / "brand"
+
+    # ------- helpers -------
+    def _paste(path, max_w, max_h, cx, cy):
+        try:
+            im = Image.open(str(path)).convert("RGBA")
+        except Exception:
+            return None
+        iw, ih = im.size
+        s = min(max_w / iw, max_h / ih)
+        new = (max(1, int(iw * s)), max(1, int(ih * s)))
+        im = im.resize(new, Image.LANCZOS)
+        bg.paste(im, (cx - new[0] // 2, cy - new[1] // 2), im)
+        return new
+
+    # ------- Outer gold border -------
+    inset = 22
+    draw.rounded_rectangle(
+        [(inset, inset), (W - inset, H - inset)],
+        radius=24,
+        outline="#d8bc84",
+        width=2,
+    )
+    # Inner thin hairline for the layered foil look
+    draw.rounded_rectangle(
+        [(inset + 10, inset + 10), (W - inset - 10, H - inset - 10)],
+        radius=18,
+        outline="#e7d2a6",
+        width=1,
+    )
+
+    # ------- Brand corners -------
+    # Top-left: LVB Rama ink lockup
+    _paste(brand / "lvb-rama-ink.png", max_w=220, max_h=70, cx=180, cy=110)
+    # Top-right: Rama Bazaar emblem (round monogram)
+    _paste(brand / "rb-emblem.png", max_w=110, max_h=110, cx=W - 130, cy=110)
+
+    # ------- Top eyebrow -------
+    eyebrow_f = _cinzel(32)
+    draw.text((W // 2, 220), "EXHIBITOR · RAMA BAZAAR 1.0",
+              font=eyebrow_f, fill="#b2873d", anchor="mt")
+
+    # Gold divider with notch ornaments
+    div_y = 280
+    draw.line([(160, div_y), (W - 160, div_y)], fill="#d8bc84", width=1)
+    # diamond ornament center
+    cx = W // 2
+    pts = [(cx, div_y - 7), (cx + 7, div_y), (cx, div_y + 7), (cx - 7, div_y)]
+    draw.polygon(pts, fill="#b2873d")
+
+    # ------- Company logo crest (normalised cream chip) -------
+    crest_size = 280
+    crest_x = (W - crest_size) // 2
+    crest_y = 330
+    # outer shadow band
+    draw.rounded_rectangle(
+        [(crest_x - 4, crest_y - 4), (crest_x + crest_size + 4, crest_y + crest_size + 4)],
+        radius=28, fill=None, outline="#e7d2a6", width=1,
+    )
+    # crest panel
+    draw.rounded_rectangle(
+        [(crest_x, crest_y), (crest_x + crest_size, crest_y + crest_size)],
+        radius=24, fill="#fbf8f0", outline="#d8bc84", width=2,
+    )
+
+    # Paste exhibitor logo inside the chip, contained
+    logo_path = None
+    logo_url = ex.get("logo_url") or ""
+    if logo_url:
+        u = logo_url.split("?", 1)[0]
+        for pref in ("/api/uploads/", "/uploads/"):
+            if u.startswith(pref):
+                p = UPLOAD_DIR / u[len(pref):]
+                if p.exists():
+                    logo_path = p
+                    break
+    if logo_path:
+        _paste(logo_path, max_w=crest_size - 56, max_h=crest_size - 56,
+               cx=crest_x + crest_size // 2, cy=crest_y + crest_size // 2)
+    else:
+        # Fallback monogram initial
+        initial_f = _truetype(160, italic=True)
+        initial = (ex.get("business_name") or ex.get("member_name") or "R").strip()[:1].upper()
+        draw.text((crest_x + crest_size // 2, crest_y + crest_size // 2 + 8),
+                  initial, font=initial_f, fill="#b2873d", anchor="mm")
+
+    # ------- Name lockup -------
+    text_top = crest_y + crest_size + 60
+
+    # Member name in italic Playfair (auto-fit width)
+    member = (ex.get("member_name") or "").strip() or "Exhibitor"
+    name_f, name_w, name_h = _fit_text(draw, member[:34], max_w=W - 240, max_h=110,
+                                       start_size=78, min_size=44, italic=True)
+    draw.text((W // 2, text_top), member[:34], font=name_f, fill="#1B194B", anchor="mt")
+    name_block_h = name_h + 14
+
+    # Position (subtle tracked caps)
+    position = (ex.get("position") or "").strip()
+    next_y = text_top + name_block_h
+    if position:
+        pos_f = _cinzel(22)
+        draw.text((W // 2, next_y), position[:42].upper(),
+                  font=pos_f, fill="#7a7868", anchor="mt")
+        next_y += 40
+
+    # Business name (Cinzel caps in gold)
+    biz = (ex.get("business_name") or "").strip()
+    if biz:
+        biz_f, biz_w, biz_h = _fit_text(draw, biz[:36], max_w=W - 220, max_h=70,
+                                        start_size=44, min_size=26, bold=True)
+        # Use Cinzel for the same size
+        biz_font = _cinzel(biz_f.size if hasattr(biz_f, "size") else 36)
+        draw.text((W // 2, next_y + 18), biz[:36],
+                  font=biz_font, fill="#b2873d", anchor="mt")
+        next_y += biz_h + 36
+
+    # ------- Phone (pill with tracked digits) -------
+    phone = (ex.get("whatsapp") or ex.get("mobile") or "").strip()
+    if phone:
+        phone_disp = f"+91 {phone[:5]} {phone[5:10]}" if phone.isdigit() and len(phone) == 10 else f"+91 {phone}"
+        ph_f = _truetype(34)
+        tb = draw.textbbox((0, 0), phone_disp, font=ph_f, anchor="lt")
+        ph_w = tb[2] - tb[0]
+        pad_x, pad_y = 26, 12
+        pill_w = ph_w + pad_x * 2
+        pill_h = (tb[3] - tb[1]) + pad_y * 2
+        pill_y = next_y + 28
+        pill_x0 = (W - pill_w) // 2
+        draw.rounded_rectangle(
+            [(pill_x0, pill_y), (pill_x0 + pill_w, pill_y + pill_h)],
+            radius=pill_h // 2, fill="#fbf8f0", outline="#d8bc84", width=1,
+        )
+        draw.text((W // 2, pill_y + pill_h // 2),
+                  phone_disp, font=ph_f, fill="#1B194B", anchor="mm")
+
+    # ------- Bottom band -------
+    # gold hairline + footer
+    foot_y = H - 130
+    draw.line([(160, foot_y), (W - 160, foot_y)], fill="#d8bc84", width=1)
+    pts = [(W // 2, foot_y - 6), (W // 2 + 6, foot_y), (W // 2, foot_y + 6), (W // 2 - 6, foot_y)]
+    draw.polygon(pts, fill="#b2873d")
+
+    wordmark_f = _cinzel(24)
+    draw.text((W // 2, foot_y + 20), "RAMA BAZAAR 1.0",
+              font=wordmark_f, fill="#1B194B", anchor="mt")
+    sub_f = _truetype(18, italic=True)
+    slug = ex.get("slug") or ""
+    sub = f"Exhibitor Badge · Ref {slug.upper()}" if slug else "Exhibitor Badge"
+    draw.text((W // 2, foot_y + 58), sub, font=sub_f, fill="#7a7868", anchor="mt")
+
+    buf = io.BytesIO()
+    bg.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+@api.get("/admin/exhibitors/badges.zip")
+async def admin_export_exhibitor_badges(_: dict = Depends(require_admin)):
+    import zipfile
+    items = await db.exhibitors.find({}, {"_id": 0, "password_hash": 0}).sort("business_name", 1).to_list(50000)
+
+    def _safe(name: str) -> str:
+        return "".join(c if (c.isalnum() or c in "-_") else "_" for c in (name or "").strip())[:60] or "exhibitor"
+
+    zbuf = io.BytesIO()
+    with zipfile.ZipFile(zbuf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for ex in items:
+            png = _render_exhibitor_badge(ex)
+            slug = ex.get("slug") or ""
+            biz = _safe(ex.get("business_name") or ex.get("member_name") or slug or "exhibitor")
+            fname = f"{biz}-{slug}-badge.png" if slug else f"{biz}-badge.png"
+            zf.writestr(fname, png)
+        zf.writestr("README.txt",
+                    "Rama Bazaar 1.0 — Exhibitor Badges\n"
+                    f"Generated: {now_iso()}\n"
+                    f"Total badges: {len(items)}\n\n"
+                    "Each PNG is 1050 × 1500 px (3.5\" × 5\" at 300 DPI), portrait orientation,\n"
+                    "ready for direct printing on standard name-tag stock.\n")
+    zbuf.seek(0)
+    return StreamingResponse(
+        zbuf,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="rama-bazaar-exhibitor-badges.zip"'},
+    )
+
+
 # ---------- Admin: Sponsor Ads ----------
 @api.get("/admin/sponsor-ads")
 async def admin_list_ads(_: dict = Depends(require_admin)):
