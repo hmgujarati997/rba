@@ -652,9 +652,17 @@ function Broadcast() {
             <div className="card-luxe p-3"><div className="eyebrow" style={{ color: "#b2873d" }}>Sent</div><div className="text-2xl font-serif-display" style={{ color: "#b2873d" }}>{result.sent}</div></div>
             <div className="card-luxe p-3"><div className="eyebrow" style={{ color: "#a23030" }}>Failed</div><div className="text-2xl font-serif-display" style={{ color: "#a23030" }}>{result.failed}</div></div>
           </div>
+          {result.samples?.length > 0 && (
+            <details className="mt-4 text-xs" open>
+              <summary style={{ color: "#b2873d" }} className="cursor-pointer">BizChat raw responses (first {result.samples.length})</summary>
+              <pre className="whitespace-pre-wrap mt-2 max-h-72 overflow-auto" style={{ color: "#3b3b46", background: "#fbf8f0", padding: 12, borderRadius: 8 }}>
+{JSON.stringify(result.samples, null, 2)}
+              </pre>
+            </details>
+          )}
           {result.errors?.length > 0 && (
             <details className="mt-4 text-xs">
-              <summary style={{ color: "#7a7868" }} className="cursor-pointer">View first {result.errors.length} errors</summary>
+              <summary style={{ color: "#a23030" }} className="cursor-pointer">Failed sends — {result.errors.length}</summary>
               <pre className="whitespace-pre-wrap mt-2 max-h-72 overflow-auto" style={{ color: "#3b3b46", background: "#fbf8f0", padding: 12, borderRadius: 8 }}>
 {JSON.stringify(result.errors, null, 2)}
               </pre>

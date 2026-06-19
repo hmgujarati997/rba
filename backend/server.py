@@ -1658,10 +1658,36 @@ async def send_bizchat_template(to_mobile: str, template_name: str, header_image
     try:
         async with httpx.AsyncClient(timeout=20) as c:
             r = await c.post(url, json=payload)
-            return {"status": r.status_code, "body": r.text[:500], "payload_sent": payload}
+            body_text = r.text[:1500]
+            body_json = None
+            try:
+                body_json = r.json()
+            except Exception:
+                body_json = None
+            # Detect BizChat soft errors (HTTP 200 but provider says fail)
+            provider_ok = True
+            provider_msg = ""
+            if isinstance(body_json, dict):
+                # Common shapes: {status: success|error, message: "..."} or {success: true|false}
+                st = (body_json.get("status") or "").lower() if isinstance(body_json.get("status"), str) else ""
+                if st in ("error", "failed", "fail"):
+                    provider_ok = False
+                if body_json.get("success") is False:
+                    provider_ok = False
+                if body_json.get("error"):
+                    provider_ok = False
+                provider_msg = body_json.get("message") or body_json.get("error") or ""
+            return {
+                "status": r.status_code,
+                "provider_ok": provider_ok,
+                "provider_msg": provider_msg,
+                "body": body_text,
+                "body_json": body_json,
+                "payload_sent": payload,
+            }
     except Exception as e:
         logger.warning(f"BizChat send error: {e}")
-        return {"error": str(e)}
+        return {"error": str(e), "provider_ok": False}
 
 @api.get("/admin/bizchat/templates")
 async def bizchat_templates(_: dict = Depends(require_admin)):
@@ -1849,7 +1875,7 @@ async def bizchat_broadcast(payload: dict, request: Request, _: dict = Depends(r
     base_url = _public_base_url(request)
     sem = asyncio.Semaphore(5)  # rate limit concurrency
 
-    results = {"total": len(recipients), "sent": 0, "failed": 0, "errors": [], "by_mobile": []}
+    results = {"total": len(recipients), "sent": 0, "failed": 0, "errors": [], "by_mobile": [], "samples": []}
 
     async def _send_one(rec: dict):
         async with sem:
@@ -1871,12 +1897,31 @@ async def bizchat_broadcast(payload: dict, request: Request, _: dict = Depends(r
                     fields=personal_fields,
                     name=rec["name"],
                 )
-                ok = isinstance(res, dict) and res.get("status") in (200, 201, 202)
+                http_ok = isinstance(res, dict) and res.get("status") in (200, 201, 202)
+                prov_ok = isinstance(res, dict) and res.get("provider_ok", True)
+                ok = http_ok and prov_ok
                 if ok:
                     results["sent"] += 1
                 else:
                     results["failed"] += 1
-                    results["errors"].append({"mobile": rec["mobile"], "result": res})
+                    results["errors"].append({
+                        "mobile": rec["mobile"],
+                        "name": rec["name"],
+                        "http_status": res.get("status") if isinstance(res, dict) else None,
+                        "provider_msg": res.get("provider_msg") if isinstance(res, dict) else "",
+                        "body": (res.get("body") or "")[:600] if isinstance(res, dict) else str(res),
+                    })
+                # Always capture first 3 raw responses so admin can inspect what BizChat actually said
+                if len(results["samples"]) < 3 and isinstance(res, dict):
+                    results["samples"].append({
+                        "mobile": rec["mobile"],
+                        "name": rec["name"],
+                        "http_status": res.get("status"),
+                        "provider_ok": res.get("provider_ok"),
+                        "provider_msg": res.get("provider_msg"),
+                        "body_json": res.get("body_json"),
+                        "body_text": (res.get("body") or "")[:600],
+                    })
                 results["by_mobile"].append({
                     "mobile": rec["mobile"], "name": rec["name"], "ok": ok,
                 })
