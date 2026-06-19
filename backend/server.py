@@ -530,6 +530,22 @@ async def visitor_by_qr(qr_id: str):
     return {"visitor": v}
 
 
+@api.head("/visitors/qr/{qr_id}.png")
+async def visitor_qr_image_head(qr_id: str):
+    """HEAD support for media downloaders (BizChat/WhatsApp validate URL before fetch)."""
+    v = await db.visitors.find_one({"qr_id": qr_id}, {"_id": 0, "qr_id": 1})
+    if not v:
+        raise HTTPException(status_code=404, detail="QR not found")
+    return JSONResponse(
+        content=None,
+        headers={
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
 @api.get("/visitors/qr/{qr_id}.png")
 async def visitor_qr_image(qr_id: str, plain: int = 0):
     v = await db.visitors.find_one({"qr_id": qr_id}, {"_id": 0})
@@ -1669,9 +1685,16 @@ async def send_bizchat_template(to_mobile: str, template_name: str, header_image
             provider_ok = True
             provider_msg = ""
             if isinstance(body_json, dict):
-                # Common shapes: {status: success|error, message: "..."} or {success: true|false}
-                st = (body_json.get("status") or "").lower() if isinstance(body_json.get("status"), str) else ""
-                if st in ("error", "failed", "fail"):
+                # Common shapes:
+                #   {status: success|error, message: "..."}
+                #   {result: success|failed, message: "..."}   <-- bizchatapi.in
+                #   {success: true|false}
+                #   {error: "..."}
+                st = body_json.get("status")
+                if isinstance(st, str) and st.lower() in ("error", "failed", "fail"):
+                    provider_ok = False
+                res_field = body_json.get("result")
+                if isinstance(res_field, str) and res_field.lower() in ("error", "failed", "fail"):
                     provider_ok = False
                 if body_json.get("success") is False:
                     provider_ok = False
@@ -1924,6 +1947,7 @@ async def bizchat_broadcast(payload: dict, request: Request, _: dict = Depends(r
                         "provider_msg": res.get("provider_msg"),
                         "body_json": res.get("body_json"),
                         "body_text": (res.get("body") or "")[:600],
+                        "sent_header_image": (res.get("payload_sent") or {}).get("header_image"),
                     })
                 results["by_mobile"].append({
                     "mobile": rec["mobile"], "name": rec["name"], "ok": ok,
