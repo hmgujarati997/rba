@@ -1621,18 +1621,19 @@ def _bizchat_config(s: dict):
     base = os.environ.get("BIZCHAT_API_BASE", "https://bizchatapi.in/api")
     return base, vendor, token
 
-async def send_bizchat_template(to_mobile: str, template_name: str, header_image: Optional[str], fields: List[str], name: str = ""):
+async def send_bizchat_template(to_mobile: str, template_name: str, header_image: Optional[str], fields: List[str], name: str = "", template_language: Optional[str] = None):
     """Send a Meta-approved template message via BizChat.
 
     fields are body variables in order ({{1}}, {{2}} ...). If the template has a media
-    header (image), pass it via header_image.
+    header (image), pass it via header_image. template_language overrides the global
+    setting when provided (e.g. "en", "en_US").
     """
     s = await get_settings()
     base, vendor, token = _bizchat_config(s)
     if not vendor or not token or not template_name:
         logger.info("BizChat template send skipped (missing vendor / token / template)")
         return {"skipped": True, "reason": "bizchat-not-configured-or-template-missing"}
-    lang = s.get("bizchat_template_language") or "en"
+    lang = (template_language or s.get("bizchat_template_language") or "en").strip()
     from_id = s.get("bizchat_from_phone_id") or ""
     url = f"{base}/{vendor}/contact/send-template-message?token={token}"
     payload = {
@@ -1847,6 +1848,7 @@ async def bizchat_broadcast(payload: dict, request: Request, _: dict = Depends(r
     if not template_name:
         raise HTTPException(status_code=400, detail="template_name is required")
 
+    template_language = (payload.get("template_language") or "").strip() or None
     audience = (payload.get("audience") or "visitors_all").strip()
     image_mode = (payload.get("image_mode") or "personalised_pass").strip()
     shared_image_url = (payload.get("shared_image_url") or "").strip()
@@ -1896,6 +1898,7 @@ async def bizchat_broadcast(payload: dict, request: Request, _: dict = Depends(r
                     header_image=header_image,
                     fields=personal_fields,
                     name=rec["name"],
+                    template_language=template_language,
                 )
                 http_ok = isinstance(res, dict) and res.get("status") in (200, 201, 202)
                 prov_ok = isinstance(res, dict) and res.get("provider_ok", True)

@@ -436,6 +436,7 @@ function Sponsors() {
 function Broadcast() {
   const [s, setS] = useState(null);
   const [templateName, setTemplateName] = useState("");
+  const [templateLanguage, setTemplateLanguage] = useState("");
   const [audience, setAudience] = useState("visitors_all");
   const [audienceCount, setAudienceCount] = useState(null);
   const [imageMode, setImageMode] = useState("personalised_pass");
@@ -451,6 +452,7 @@ function Broadcast() {
     api.get("/admin/settings").then((r) => {
       setS(r.data);
       setTemplateName(r.data.bizchat_template_visitor || "");
+      setTemplateLanguage(r.data.bizchat_template_language || "en");
     });
   }, []);
 
@@ -481,6 +483,7 @@ function Broadcast() {
       .filter((m) => m.length === 10);
     return {
       template_name: templateName,
+      template_language: templateLanguage,
       audience,
       image_mode: imageMode,
       shared_image_url: sharedImageUrl,
@@ -524,17 +527,28 @@ function Broadcast() {
 
       <div className="mt-6 card-luxe p-5 grid sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2 eyebrow" style={{ color: "#b2873d" }}>1 · Template</div>
-        <div className="sm:col-span-2 flex gap-2 items-end">
-          <div className="flex-1">
-            <label className="label-luxe">Meta Template Name</label>
-            <input
-              className="input-luxe"
-              data-testid="bc-template-name"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="e.g. event_pass_update"
-            />
-          </div>
+        <div>
+          <label className="label-luxe">Meta Template Name</label>
+          <input
+            className="input-luxe"
+            data-testid="bc-template-name"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="e.g. event_pass_update"
+          />
+        </div>
+        <div>
+          <label className="label-luxe">Template Language Code</label>
+          <input
+            className="input-luxe"
+            data-testid="bc-template-language"
+            value={templateLanguage}
+            onChange={(e) => setTemplateLanguage(e.target.value)}
+            placeholder="e.g. en, en_US, en_GB"
+          />
+          <p className="text-xs mt-1" style={{ color: "#7a7868" }}>Must match the language code your template is approved under in BWA Manager.</p>
+        </div>
+        <div className="sm:col-span-2 flex justify-end">
           <button type="button" onClick={fetchTemplates} className="btn-outline-gold">List Templates</button>
         </div>
         {templates && (
