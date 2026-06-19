@@ -15,6 +15,7 @@ const TABS = [
   ["committee", "Committee"],
   ["members", "Members"],
   ["sponsors", "Sponsors"],
+  ["broadcast", "Broadcast"],
   ["settings", "Settings"],
   ["attendance", "Attendance"],
 ];
@@ -44,6 +45,7 @@ export default function AdminDashboard() {
             <Route path="committee" element={<Committee />} />
             <Route path="members" element={<Members />} />
             <Route path="sponsors" element={<Sponsors />} />
+            <Route path="broadcast" element={<Broadcast />} />
             <Route path="settings" element={<Settings />} />
             <Route path="attendance" element={<AttendanceRedirect />} />
           </Routes>
@@ -427,6 +429,239 @@ function Sponsors() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function Broadcast() {
+  const [s, setS] = useState(null);
+  const [templateName, setTemplateName] = useState("");
+  const [audience, setAudience] = useState("visitors_all");
+  const [audienceCount, setAudienceCount] = useState(null);
+  const [imageMode, setImageMode] = useState("personalised_pass");
+  const [sharedImageUrl, setSharedImageUrl] = useState("");
+  const [fields, setFields] = useState(["", "", "", "", ""]);
+  const [testMobiles, setTestMobiles] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [result, setResult] = useState(null);
+  const [templates, setTemplates] = useState(null);
+
+  useEffect(() => {
+    api.get("/admin/settings").then((r) => {
+      setS(r.data);
+      setTemplateName(r.data.bizchat_template_visitor || "");
+    });
+  }, []);
+
+  useEffect(() => {
+    setAudienceCount(null);
+    if (!audience) return;
+    api.get(`/admin/bizchat/audience-count?audience=${audience}`)
+      .then((r) => setAudienceCount(r.data.count))
+      .catch(() => setAudienceCount(null));
+  }, [audience]);
+
+  if (!s) return <div>Loading…</div>;
+
+  const setField = (i, v) => setFields(fields.map((f, idx) => (idx === i ? v : f)));
+
+  const fetchTemplates = async () => {
+    try {
+      const { data } = await api.get("/admin/bizchat/templates");
+      setTemplates(data.data);
+      toast.success("Templates fetched");
+    } catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+  };
+
+  const buildPayload = () => {
+    const testList = testMobiles
+      .split(/[\s,]+/)
+      .map((m) => m.replace(/\D/g, ""))
+      .filter((m) => m.length === 10);
+    return {
+      template_name: templateName,
+      audience,
+      image_mode: imageMode,
+      shared_image_url: sharedImageUrl,
+      field_1: fields[0], field_2: fields[1], field_3: fields[2],
+      field_4: fields[3], field_5: fields[4],
+      test_mobiles: testList,
+    };
+  };
+
+  const previewSend = async () => {
+    if (!templateName.trim()) { toast.error("Template name is required"); return; }
+    setBusy(true);
+    try {
+      const { data } = await api.post("/admin/bizchat/broadcast", { ...buildPayload(), dry_run: true });
+      setResult({ preview: true, ...data });
+      setConfirm(true);
+    } catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+    finally { setBusy(false); }
+  };
+
+  const doSend = async () => {
+    setBusy(true);
+    setConfirm(false);
+    try {
+      const { data } = await api.post("/admin/bizchat/broadcast", buildPayload());
+      setResult(data);
+      if (data.sent > 0) toast.success(`Sent to ${data.sent} / ${data.total}`);
+      if (data.failed > 0) toast.error(`${data.failed} failed`);
+    } catch (err) { toast.error(formatError(err.response?.data?.detail)); }
+    finally { setBusy(false); }
+  };
+
+  const fieldHint = "Use {name}, {business_name}, {city}, {industry}, {mobile} to personalise";
+
+  return (
+    <div data-testid="broadcast-panel">
+      <h2 className="font-serif-display text-3xl">Broadcast WhatsApp</h2>
+      <p className="text-sm mt-1" style={{ color: "#7a7868" }}>
+        Send a Meta-approved template to all visitors / exhibitors with the personalised event pass attached.
+      </p>
+
+      <div className="mt-6 card-luxe p-5 grid sm:grid-cols-2 gap-4">
+        <div className="sm:col-span-2 eyebrow" style={{ color: "#b2873d" }}>1 · Template</div>
+        <div className="sm:col-span-2 flex gap-2 items-end">
+          <div className="flex-1">
+            <label className="label-luxe">Meta Template Name</label>
+            <input
+              className="input-luxe"
+              data-testid="bc-template-name"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g. event_pass_update"
+            />
+          </div>
+          <button type="button" onClick={fetchTemplates} className="btn-outline-gold">List Templates</button>
+        </div>
+        {templates && (
+          <div className="sm:col-span-2 card-luxe p-3 max-h-48 overflow-auto text-xs" style={{ background: "#fbf8f0" }}>
+            <pre className="whitespace-pre-wrap" style={{ color: "#3b3b46" }}>{JSON.stringify(templates, null, 2)}</pre>
+          </div>
+        )}
+
+        <div className="sm:col-span-2 eyebrow mt-2" style={{ color: "#b2873d" }}>2 · Audience</div>
+        <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {[
+            ["visitors_all", "All Visitors"],
+            ["visitors_present", "Visitors · Checked-in"],
+            ["visitors_pending", "Visitors · Pending"],
+            ["exhibitors_all", "All Exhibitors"],
+            ["exhibitors_approved", "Exhibitors · Approved"],
+            ["exhibitors_paid", "Exhibitors · Paid"],
+          ].map(([k, l]) => (
+            <label key={k}
+              className={`px-3 py-2 rounded border cursor-pointer text-sm ${audience === k ? "bg-[#1f1f27] text-[#f8f7f4] border-[#1f1f27]" : ""}`}
+              style={audience === k ? {} : { borderColor: "#d8bc84", color: "#1f1f27" }}
+            >
+              <input type="radio" className="hidden" checked={audience === k} onChange={() => setAudience(k)} data-testid={`bc-aud-${k}`} />
+              {l}
+            </label>
+          ))}
+        </div>
+        <div className="sm:col-span-2 text-xs" style={{ color: "#7a7868" }}>
+          Recipients in this audience: <strong style={{ color: "#b2873d" }}>{audienceCount ?? "…"}</strong>
+        </div>
+
+        <div className="sm:col-span-2 eyebrow mt-2" style={{ color: "#b2873d" }}>3 · Header Image (event pass)</div>
+        <div className="sm:col-span-2 flex flex-col gap-2 text-sm">
+          <label className="inline-flex items-start gap-2 cursor-pointer">
+            <input type="radio" checked={imageMode === "personalised_pass"} onChange={() => setImageMode("personalised_pass")} data-testid="bc-img-personal"/>
+            <span><strong>Personalised event pass</strong> · each visitor receives their own branded QR poster (recommended for visitor audiences)</span>
+          </label>
+          <label className="inline-flex items-start gap-2 cursor-pointer">
+            <input type="radio" checked={imageMode === "shared_url"} onChange={() => setImageMode("shared_url")} data-testid="bc-img-shared"/>
+            <span><strong>Shared image URL</strong> · same image for everyone</span>
+          </label>
+          {imageMode === "shared_url" && (
+            <input
+              className="input-luxe"
+              placeholder="https://…/event-pass.png"
+              value={sharedImageUrl}
+              onChange={(e) => setSharedImageUrl(e.target.value)}
+              data-testid="bc-shared-url"
+            />
+          )}
+          <label className="inline-flex items-start gap-2 cursor-pointer">
+            <input type="radio" checked={imageMode === "none"} onChange={() => setImageMode("none")} data-testid="bc-img-none"/>
+            <span><strong>No image</strong> · text-only template</span>
+          </label>
+        </div>
+
+        <div className="sm:col-span-2 eyebrow mt-2" style={{ color: "#b2873d" }}>4 · Body Variables · {fieldHint}</div>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className={i === 4 ? "sm:col-span-2" : ""}>
+            <label className="label-luxe">{`{{${i + 1}}}`}</label>
+            <input
+              className="input-luxe"
+              data-testid={`bc-field-${i + 1}`}
+              value={fields[i]}
+              onChange={(e) => setField(i, e.target.value)}
+              placeholder={i === 0 ? "{name}" : ""}
+            />
+          </div>
+        ))}
+
+        <div className="sm:col-span-2 eyebrow mt-2" style={{ color: "#b2873d" }}>5 · Safety · Test Numbers (optional)</div>
+        <div className="sm:col-span-2">
+          <input
+            className="input-luxe"
+            placeholder="Comma-separated 10-digit mobiles to limit the send (leave empty to send to full audience)"
+            value={testMobiles}
+            onChange={(e) => setTestMobiles(e.target.value)}
+            data-testid="bc-test-mobiles"
+          />
+          <p className="text-xs mt-1" style={{ color: "#7a7868" }}>If filled, the broadcast goes only to those numbers — perfect for a dress rehearsal.</p>
+        </div>
+
+        <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
+          <button onClick={previewSend} disabled={busy} className="btn-outline-gold" data-testid="bc-preview">
+            {busy ? "Working…" : "Preview & Send"}
+          </button>
+        </div>
+      </div>
+
+      {confirm && result?.preview && (
+        <div className="mt-6 card-luxe p-5" data-testid="bc-confirm">
+          <h3 className="font-serif-display text-2xl">Ready to send?</h3>
+          <p className="text-sm mt-1" style={{ color: "#3b3b46" }}>
+            Template <strong>{templateName}</strong> will be sent to <strong style={{ color: "#b2873d" }}>{result.total}</strong> recipient{result.total === 1 ? "" : "s"}.
+          </p>
+          {result.sample?.length > 0 && (
+            <div className="mt-3 text-xs" style={{ color: "#7a7868" }}>
+              Sample: {result.sample.map((r) => `${r.name || "—"} (${r.mobile})`).slice(0, 5).join(", ")}{result.total > 5 ? ` … +${result.total - 5} more` : ""}
+            </div>
+          )}
+          <div className="flex justify-end gap-3 mt-4">
+            <button className="btn-outline-gold" onClick={() => setConfirm(false)} data-testid="bc-cancel">Cancel</button>
+            <button className="btn-gold" onClick={doSend} disabled={busy || result.total === 0} data-testid="bc-confirm-send">
+              {busy ? "Sending…" : `Send to ${result.total}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {result && !result.preview && (
+        <div className="mt-6 card-luxe p-5" data-testid="bc-result">
+          <h3 className="font-serif-display text-2xl">Broadcast complete</h3>
+          <div className="grid grid-cols-3 gap-3 mt-3 text-center">
+            <div className="card-luxe p-3"><div className="eyebrow" style={{ color: "#7a7868" }}>Total</div><div className="text-2xl font-serif-display">{result.total}</div></div>
+            <div className="card-luxe p-3"><div className="eyebrow" style={{ color: "#b2873d" }}>Sent</div><div className="text-2xl font-serif-display" style={{ color: "#b2873d" }}>{result.sent}</div></div>
+            <div className="card-luxe p-3"><div className="eyebrow" style={{ color: "#a23030" }}>Failed</div><div className="text-2xl font-serif-display" style={{ color: "#a23030" }}>{result.failed}</div></div>
+          </div>
+          {result.errors?.length > 0 && (
+            <details className="mt-4 text-xs">
+              <summary style={{ color: "#7a7868" }} className="cursor-pointer">View first {result.errors.length} errors</summary>
+              <pre className="whitespace-pre-wrap mt-2 max-h-72 overflow-auto" style={{ color: "#3b3b46", background: "#fbf8f0", padding: 12, borderRadius: 8 }}>
+{JSON.stringify(result.errors, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 }

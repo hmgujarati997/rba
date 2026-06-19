@@ -51,6 +51,7 @@ Build a premium mobile-first PWA for "Rama Bazaar 1.0", an exclusive business ex
 ✅ Admin Bundle Export ZIP (logos/photos/Excel with digital-card links) via `openpyxl`
 ✅ Gate-keeper login (`/gate/login`) for door staff, restricted access
 ✅ Camera scanner upgraded (dynamic scan box, 12fps, image-upload fallback)
+✅ Admin → Broadcast tab (Feb 2026): bulk-send a Meta-approved BizChat template to all/checked-in/pending visitors or all/approved/paid exhibitors with the personalised event pass attached. Supports {name}, {business_name}, {city}, {industry}, {mobile} token interpolation in all 5 template body variables, audience count preview, dry-run confirm modal, and test-number safety field. Endpoints: `GET /api/admin/bizchat/audience-count`, `POST /api/admin/bizchat/broadcast`.
 
 ## Prioritized Backlog
 ### P1 (next)

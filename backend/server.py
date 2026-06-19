@@ -11,6 +11,7 @@ import json
 import base64
 import logging
 import secrets
+import asyncio
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta
 
@@ -1713,6 +1714,181 @@ async def send_whatsapp(qr_id: str, request: Request):
         name=v.get("full_name", ""),
     )
     return {"sent": True, "result": result}
+
+
+# ---------- BizChat Broadcast (bulk send with personalised event pass) ----------
+def _public_base_url(request: Request) -> str:
+    """Return the externally reachable base URL (uses REACT_APP_BACKEND_URL when set)."""
+    env_base = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("REACT_APP_BACKEND_URL")
+    if env_base:
+        return env_base.rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+def _interpolate(template_str: str, ctx: dict) -> str:
+    """Replace {name}, {business_name}, {city}, {mobile}, {industry}, {category} tokens."""
+    if not template_str:
+        return ""
+    out = template_str
+    for k, v in ctx.items():
+        out = out.replace("{" + k + "}", str(v or ""))
+    return out
+
+
+async def _broadcast_audience(audience: str) -> List[dict]:
+    """Resolve the audience into a list of recipient dicts with {mobile, name, ctx, pass_url_key}."""
+    out: List[dict] = []
+    if audience.startswith("visitors_"):
+        q = {}
+        if audience == "visitors_present":
+            q = {"attended": True}
+        elif audience == "visitors_pending":
+            q = {"attended": {"$ne": True}}
+        # else: visitors_all
+        cur = db.visitors.find(q, {"_id": 0})
+        async for v in cur:
+            mob = (v.get("mobile") or "").strip()
+            if not mob:
+                continue
+            out.append({
+                "kind": "visitor",
+                "mobile": mob,
+                "name": v.get("full_name") or "",
+                "qr_id": v.get("qr_id") or "",
+                "ctx": {
+                    "name": v.get("full_name") or "",
+                    "business_name": v.get("business_name") or "",
+                    "city": v.get("city") or "",
+                    "industry": v.get("industry") or "",
+                    "mobile": mob,
+                },
+            })
+    elif audience.startswith("exhibitors_"):
+        q = {"hidden": {"$ne": True}}
+        if audience == "exhibitors_paid":
+            q["paid"] = True
+        elif audience == "exhibitors_approved":
+            q["approved"] = True
+        cur = db.exhibitors.find(q, {"_id": 0, "password_hash": 0})
+        async for ex in cur:
+            mob = (ex.get("whatsapp") or ex.get("mobile") or "").strip()
+            if not mob:
+                continue
+            out.append({
+                "kind": "exhibitor",
+                "mobile": mob,
+                "name": ex.get("member_name") or "",
+                "qr_id": "",
+                "ctx": {
+                    "name": ex.get("member_name") or "",
+                    "business_name": ex.get("business_name") or "",
+                    "city": ex.get("city") or "",
+                    "industry": ex.get("category") or "",
+                    "category": ex.get("category") or "",
+                    "mobile": mob,
+                },
+            })
+    return out
+
+
+@api.get("/admin/bizchat/audience-count")
+async def bizchat_audience_count(audience: str, _: dict = Depends(require_admin)):
+    """Return how many recipients a given audience selector resolves to."""
+    recipients = await _broadcast_audience(audience)
+    return {"audience": audience, "count": len(recipients)}
+
+
+@api.post("/admin/bizchat/broadcast")
+async def bizchat_broadcast(payload: dict, request: Request, _: dict = Depends(require_admin)):
+    """Send a Meta-approved template to a chosen audience with a personalised header image.
+
+    Payload:
+      template_name (str)        — Meta-approved template
+      audience (str)             — visitors_all | visitors_present | visitors_pending |
+                                   exhibitors_all | exhibitors_paid | exhibitors_approved
+      field_1..field_5 (str)     — template body variables, may include {name}, {business_name}, {city}, {mobile}
+      image_mode (str)           — "personalised_pass" (per visitor) | "shared_url" | "none"
+      shared_image_url (str)     — used when image_mode == shared_url
+      test_mobiles (list[str])   — if provided, only send to these numbers (subset of audience or override)
+      dry_run (bool)             — if true, return the recipient list without sending
+    """
+    s = await get_settings()
+    base, vendor, token = _bizchat_config(s)
+    if not vendor or not token:
+        raise HTTPException(status_code=400, detail="BizChat not configured. Add Vendor UID + Token in Settings.")
+
+    template_name = (payload.get("template_name") or "").strip()
+    if not template_name:
+        raise HTTPException(status_code=400, detail="template_name is required")
+
+    audience = (payload.get("audience") or "visitors_all").strip()
+    image_mode = (payload.get("image_mode") or "personalised_pass").strip()
+    shared_image_url = (payload.get("shared_image_url") or "").strip()
+    fields_in = [
+        (payload.get("field_1") or "").strip(),
+        (payload.get("field_2") or "").strip(),
+        (payload.get("field_3") or "").strip(),
+        (payload.get("field_4") or "").strip(),
+        (payload.get("field_5") or "").strip(),
+    ]
+    test_mobiles = [normalize_mobile(m) for m in (payload.get("test_mobiles") or []) if m]
+    dry_run = bool(payload.get("dry_run", False))
+
+    recipients = await _broadcast_audience(audience)
+    if test_mobiles:
+        recipients = [r for r in recipients if r["mobile"] in test_mobiles]
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "audience": audience,
+            "total": len(recipients),
+            "sample": [{"mobile": r["mobile"], "name": r["name"]} for r in recipients[:10]],
+        }
+
+    base_url = _public_base_url(request)
+    sem = asyncio.Semaphore(5)  # rate limit concurrency
+
+    results = {"total": len(recipients), "sent": 0, "failed": 0, "errors": [], "by_mobile": []}
+
+    async def _send_one(rec: dict):
+        async with sem:
+            try:
+                # personalise body fields
+                personal_fields = [_interpolate(f, rec["ctx"]) for f in fields_in]
+                # image header
+                if image_mode == "personalised_pass" and rec["kind"] == "visitor" and rec["qr_id"]:
+                    header_image = f"{base_url}/api/visitors/qr/{rec['qr_id']}.png"
+                elif image_mode == "shared_url" and shared_image_url:
+                    header_image = shared_image_url
+                else:
+                    header_image = None
+                mobile_full = "91" + rec["mobile"] if len(rec["mobile"]) == 10 else rec["mobile"]
+                res = await send_bizchat_template(
+                    to_mobile=mobile_full,
+                    template_name=template_name,
+                    header_image=header_image,
+                    fields=personal_fields,
+                    name=rec["name"],
+                )
+                ok = isinstance(res, dict) and res.get("status") in (200, 201, 202)
+                if ok:
+                    results["sent"] += 1
+                else:
+                    results["failed"] += 1
+                    results["errors"].append({"mobile": rec["mobile"], "result": res})
+                results["by_mobile"].append({
+                    "mobile": rec["mobile"], "name": rec["name"], "ok": ok,
+                })
+            except Exception as e:
+                results["failed"] += 1
+                results["errors"].append({"mobile": rec.get("mobile"), "error": str(e)})
+
+    await asyncio.gather(*[_send_one(r) for r in recipients])
+    # Trim huge response payloads
+    results["errors"] = results["errors"][:50]
+    results["by_mobile"] = results["by_mobile"][:200]
+    return results
 
 # ---------- Committee Members ----------
 COMMITTEE_GROUPS = ("rama_bazaar", "management", "supported_by")
