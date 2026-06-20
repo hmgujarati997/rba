@@ -1768,10 +1768,25 @@ async def send_whatsapp(qr_id: str, request: Request):
 
 # ---------- BizChat Broadcast (bulk send with personalised event pass) ----------
 def _public_base_url(request: Request) -> str:
-    """Return the externally reachable base URL (uses REACT_APP_BACKEND_URL when set)."""
-    env_base = os.environ.get("PUBLIC_BASE_URL") or os.environ.get("REACT_APP_BACKEND_URL")
+    """Return the externally reachable base URL.
+
+    Priority:
+      1. Explicit PUBLIC_BASE_URL env var (always wins — useful when behind a custom CDN/domain).
+      2. X-Forwarded-Proto + X-Forwarded-Host headers (set by k8s ingress / load balancers).
+      3. Host header + assumed https.
+      4. request.base_url as a last-resort fallback.
+    """
+    env_base = (os.environ.get("PUBLIC_BASE_URL") or "").strip()
     if env_base:
         return env_base.rstrip("/")
+    fwd_host = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
+    fwd_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip()
+    if fwd_host:
+        scheme = fwd_proto or "https"
+        return f"{scheme}://{fwd_host}".rstrip("/")
+    host = (request.headers.get("host") or "").strip()
+    if host and not host.startswith(("0.0.0.0", "127.", "localhost", "10.", "172.", "192.168.")):
+        return f"https://{host}".rstrip("/")
     return str(request.base_url).rstrip("/")
 
 
